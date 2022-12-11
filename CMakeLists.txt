@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0.2)
 
-add_compile_options(-std=c++14)
+add_compile_options(-std=c++17)
 find_package(ompl REQUIRED)
 find_package(Boost REQUIRED COMPONENTS serialization)
 

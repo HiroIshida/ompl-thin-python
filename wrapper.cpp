@@ -20,6 +20,7 @@
 #include <memory>
 #include <vector>
 #include <functional>
+#include <optional>
 
 
 namespace ob = ompl::base;
@@ -54,7 +55,7 @@ class OMPLConnectPlanner
       si->setStateValidityChecker([this](const ob::State* s){return this->is_valid(s);});
     }
 
-    std::vector<std::vector<double>> solve(const std::vector<double>& start, const std::vector<double>& goal){
+    std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start, const std::vector<double>& goal){
       const auto& space = planner_->getSpaceInformation()->getStateSpace();
       ob::ScopedState<ob::RealVectorStateSpace> start_state(space), goal_state(space);
 
@@ -72,6 +73,9 @@ class OMPLConnectPlanner
 
       std::function<bool()> fn = [this](){return this->is_terminatable();};
       const auto result = this->planner_->solve(fn);
+      if(not result){
+        return {};
+      }
       const auto p = pdef->getSolutionPath()->as<og::PathGeometric>();
 
       const auto & states = p->getStates();
