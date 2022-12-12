@@ -7,17 +7,44 @@ VectorLike = Union[np.ndarray, Sequence[float]]
 PathLike = Union[Path, str]
 
 
+class Planner:
+    """
+    An additional higher layer wrapper.
+    One important reason of this class is exposing type hinting
+    """
+    _planner: Any
+    _is_valid: Callable[[VectorLike], bool]
+
+    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[VectorLike], bool], n_max_is_valid: int, fraction: float):
+        self._planner = _omplpy._OMPLPlanner(lb, ub, is_valid, n_max_is_valid, fraction)
+        self._is_valid = is_valid
+
+    def solve(self, start: VectorLike, goal: VectorLike) -> Optional[List[np.ndarray]]:
+        assert self._is_valid(start)
+        assert self._is_valid(goal)
+        ret = self._planner.solve(start, goal)
+        if ret is None:
+            return ret
+        for i in range(len(ret)):
+            ret[i] = np.array(ret[i])
+        return ret
+
+
 class LightningPlanner:
     """
     An additional higher layer wrapper.
     One important reason of this class is exposing type hinting
     """
     _planner: Any
+    _is_valid: Callable[[VectorLike], bool]
 
-    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[Sequence[float]], bool], n_max_is_valid: int, fraction: float):
+    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[VectorLike], bool], n_max_is_valid: int, fraction: float):
         self._planner = _omplpy._LightningPlanner(lb, ub, is_valid, n_max_is_valid, fraction)
+        self._is_valid = is_valid
 
     def solve(self, start: VectorLike, goal: VectorLike) -> Optional[List[np.ndarray]]:
+        assert self._is_valid(start)
+        assert self._is_valid(goal)
         ret = self._planner.solve(start, goal)
         if ret is None:
             return ret
