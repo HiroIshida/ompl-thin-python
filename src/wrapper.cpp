@@ -11,14 +11,14 @@ namespace py = pybind11;
 PYBIND11_MODULE(_omplpy, m)
 {
   m.doc() = "unofficial ompl python wrapper";
-  py::class_<OMPLPlanner>(m, "OMPLPlanner")
+  py::class_<OMPLPlanner>(m, "_OMPLPlanner")
       .def(py::init<std::vector<double>,
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,
                     size_t,
                     double>())
       .def("solve", &OMPLPlanner::solve);
-  py::class_<LightningPlanner>(m, "LightningPlanner")
+  py::class_<LightningPlanner>(m, "_LightningPlanner")
       .def(py::init<std::vector<double>,
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,

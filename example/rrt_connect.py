@@ -1,4 +1,6 @@
-import _omplpy
+from ompl import LightningPlanner
+from tempfile import TemporaryDirectory
+from pathlib import Path
 import numpy as np
 import time
 #import matplotlib.pyplot as plt
@@ -24,13 +26,13 @@ def sample_valid():
 start = np.array([0.1, 0.1])
 goal = np.array([0.9, 0.9])
 
-lightning = _omplpy.LightningPlanner([0, 0], [1, 1], is_valid, 100000, 0.05)
+lightning = LightningPlanner([0, 0], [1, 1], is_valid, 100000, 0.05)
 lightning.scratch()
 for _ in range(300):
     lightning.solve(start, sample_valid())
-lightning.dump("tmp.db")
 
-lightning_loaded = _omplpy.LightningPlanner([0, 0], [1, 1], is_valid, 100000, 0.05)
+lightning.dump("tmp.db")
+lightning_loaded = LightningPlanner([0, 0], [1, 1], is_valid, 100000, 0.05)
 lightning_loaded.load("tmp.db")
 lightning_loaded.recall()
 lightning_loaded.solve(start, goal)

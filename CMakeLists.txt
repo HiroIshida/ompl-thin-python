@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS_INIT} -Wall -fPIC")
 
 if(USE_ASAN)
     set(CMAKE_BUILD_TYPE Debug)
@@ -23,3 +23,8 @@ target_link_libraries(_omplpy PRIVATE ompl ${Boost_LIBRARIES})
 
 add_executable(demo src/demo.cpp)
 target_link_libraries(demo ompl ${Boost_LIBRARIES})
+
+set(PIP_INSTALL ON)
+if(PIP_INSTALL)
+    install(TARGETS _omplpy DESTINATION .)
+endif()
