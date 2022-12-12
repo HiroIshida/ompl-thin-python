@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "ompl/base/MotionValidator.h"
 #include "ompl/base/Planner.h"
 
 namespace ob = ompl::base;
@@ -29,6 +30,20 @@ namespace og = ompl::geometric;
 namespace ot = ompl::tools;
 
 namespace py = pybind11;
+
+class AllPassMotionValidator : public ob::MotionValidator
+{
+ public:
+  using ob::MotionValidator::MotionValidator;
+  bool checkMotion(const ob::State* s1, const ob::State* s2) const { return true; }
+
+  bool checkMotion(const ob::State* s1,
+                   const ob::State* s2,
+                   std::pair<ob::State*, double>& lastValid) const
+  {
+    return true;
+  }
+};
 
 template <typename SetupT,
           typename std::enable_if<std::is_base_of<og::SimpleSetup, SetupT>::value, int>::type = 0>
@@ -50,6 +65,12 @@ struct SetupWrapper {
         max_is_valid_call_(max_is_valid_call)
   {
     setup_ = std::make_unique<SetupT>(space);
+
+    // TODO: make this configurable from constructor
+    const auto si = this->setup_->getSpaceInformation();
+    si->setMotionValidator(std::make_shared<AllPassMotionValidator>(si));
+    si->setup();
+
     setup_->setStateValidityChecker([this](const ob::State* s) { return this->is_valid(s); });
   }
 
@@ -141,6 +162,7 @@ struct OMPLPlanner {
   std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
                                                         const std::vector<double>& goal)
   {
+    this->sw_.setup_->clear();
     return ::solve(this->sw_, start, goal);
   }
 
@@ -172,6 +194,7 @@ struct LightningPlanner {
   std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
                                                         const std::vector<double>& goal)
   {
+    this->sw_.setup_->clear();
     return ::solve(this->sw_, start, goal);
   }
 
