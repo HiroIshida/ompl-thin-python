@@ -10,9 +10,6 @@
 #include <ompl/tools/experience/ExperienceSetup.h>
 #include <ompl/tools/lightning/Lightning.h>
 #include <ompl/util/PPM.h>
-#include <pybind11/functional.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
 
 #include <boost/filesystem.hpp>
 #include <functional>
@@ -29,8 +26,6 @@
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 namespace ot = ompl::tools;
-
-namespace py = pybind11;
 
 class AllPassMotionValidator : public ob::MotionValidator
 {

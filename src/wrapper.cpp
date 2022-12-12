@@ -6,6 +6,8 @@
 
 #include "ompl_higher.hpp"
 
+namespace py = pybind11;
+
 PYBIND11_MODULE(_omplpy, m)
 {
   m.doc() = "unofficial ompl python wrapper";
