@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "ompl/base/DiscreteMotionValidator.h"
@@ -240,6 +241,29 @@ struct LightningPlanner {
     } else {
       return {};
     }
+  }
+
+  void dumpExperience(const std::string& file_name)
+  {
+    sw_.setup_->setFilePath(file_name);
+    const bool success = sw_.setup_->save();
+    if (!success) {
+      throw std::runtime_error("failed to save to " + file_name);
+    }
+    sw_.setup_->setFilePath("");  // I don't want to have filepath as internal state
+  }
+
+  void loadExperience(const std::string& file_name)
+  {
+    const size_t exp_count = sw_.setup_->getExperiencesCount();
+    if (exp_count > 0) {
+      const std::string message =
+          "cannot load because you have " + std::to_string(exp_count) + " experiences";
+      throw std::runtime_error(message);
+    }
+    sw_.setup_->setFilePath(file_name);
+    sw_.setup_->setup();          // load database
+    sw_.setup_->setFilePath("");  // I don't want to have filepath as internal state
   }
 
   std::vector<std::vector<std::vector<double>>> getExperiencedPaths()

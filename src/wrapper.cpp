@@ -28,5 +28,7 @@ PYBIND11_MODULE(_omplpy, m)
       .def("recall", &LightningPlanner::recallMode)
       .def("scratch", &LightningPlanner::scratchMode)
       .def("get_experienced_paths", &LightningPlanner::getExperiencedPaths)
+      .def("dump", &LightningPlanner::dumpExperience)
+      .def("load", &LightningPlanner::loadExperience)
       .def("get_latest_activated_index", &LightningPlanner::getLatestActivatedIndex);
 }
