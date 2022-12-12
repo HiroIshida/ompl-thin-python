@@ -175,6 +175,18 @@ struct LightningPlanner {
     return ::solve(this->sw_, start, goal);
   }
 
+  void recallMode()
+  {
+    this->sw_.setup_->enablePlanningFromScratch(false);
+    this->sw_.setup_->enablePlanningFromRecall(true);
+  }
+
+  void scratchMode()
+  {
+    this->sw_.setup_->enablePlanningFromScratch(true);
+    this->sw_.setup_->enablePlanningFromRecall(false);
+  }
+
   SetupWrapper<ot::Lightning> sw_;
 };
 
@@ -193,5 +205,7 @@ PYBIND11_MODULE(_omplpy, m)
                     std::function<bool(std::vector<double>)>,
                     size_t,
                     bool>())
-      .def("solve", &LightningPlanner::solve);
+      .def("solve", &LightningPlanner::solve)
+      .def("recall", &LightningPlanner::recallMode)
+      .def("scratch", &LightningPlanner::scratchMode);
 }
