@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "ompl/base/DiscreteMotionValidator.h"
 #include "ompl/base/MotionValidator.h"
 #include "ompl/base/Planner.h"
 
@@ -51,14 +52,16 @@ struct SetupWrapper {
   SetupWrapper(std::vector<double> lb,
                std::vector<double> ub,
                std::function<bool(std::vector<double>)> is_valid,
-               size_t max_is_valid_call)
-      : SetupWrapper(bound2space(lb, ub), is_valid, max_is_valid_call)
+               size_t max_is_valid_call,
+               double fraction)
+      : SetupWrapper(bound2space(lb, ub), is_valid, max_is_valid_call, fraction)
   {
   }
 
   SetupWrapper(ob::StateSpacePtr space,
                std::function<bool(std::vector<double>)> is_valid,
-               size_t max_is_valid_call)
+               size_t max_is_valid_call,
+               double fraction)
       : setup_(nullptr),
         is_valid_(is_valid),
         is_valid_call_count_(0),
@@ -68,6 +71,8 @@ struct SetupWrapper {
 
     // TODO: make this configurable from constructor
     const auto si = this->setup_->getSpaceInformation();
+    si->getStateSpace()->setLongestValidSegmentFraction(fraction);
+    si->setup();
     // si->setMotionValidator(std::make_shared<AllPassMotionValidator>(si));
     setup_->setStateValidityChecker([this](const ob::State* s) { return this->is_valid(s); });
   }
@@ -101,13 +106,12 @@ struct SetupWrapper {
     return is_valid_(vec);
   }
 
-  std::shared_ptr<ob::Planner> create_algorithm(const std::string& name, double interval)
+  std::shared_ptr<ob::Planner> create_algorithm(const std::string& name)
   {
     const auto space_info = this->setup_->getSpaceInformation();
     std::shared_ptr<ob::Planner> algo_out;
     if (name.compare("rrtconnect") == 0) {
       const auto algo = std::make_shared<og::RRTConnect>(space_info);
-      algo->setRange(interval);
       algo_out = algo;
       return std::static_pointer_cast<ob::Planner>(algo);
     } else {
@@ -162,10 +166,10 @@ struct OMPLPlanner {
               std::function<bool(std::vector<double>)> is_valid,
               size_t max_is_valid_call,
               double interval)
-      : sw_(SetupWrapper<og::SimpleSetup>(lb, ub, is_valid, max_is_valid_call))
+      : sw_(SetupWrapper<og::SimpleSetup>(lb, ub, is_valid, max_is_valid_call, interval))
   {
     const std::string algo_name = "rrtconnect";
-    const auto algo = this->sw_.create_algorithm(algo_name, interval);
+    const auto algo = this->sw_.create_algorithm(algo_name);
     this->sw_.setup_->setPlanner(algo);
   }
   std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
@@ -185,10 +189,10 @@ struct LightningPlanner {
                    size_t max_is_valid_call,
                    double interval,
                    bool from_scratch)
-      : sw_(SetupWrapper<ot::Lightning>(lb, ub, is_valid, max_is_valid_call))
+      : sw_(SetupWrapper<ot::Lightning>(lb, ub, is_valid, max_is_valid_call, interval))
   {
     const std::string algo_name = "rrtconnect";
-    const auto algo = this->sw_.create_algorithm(algo_name, interval);
+    const auto algo = this->sw_.create_algorithm(algo_name);
     this->sw_.setup_->setPlanner(algo);
     this->sw_.setup_->setRepairPlanner(algo);
     this->sw_.setup_->enablePlanningFromScratch(from_scratch);
@@ -231,8 +235,8 @@ PYBIND11_MODULE(_omplpy, m)
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,
                     size_t,
-                    bool,
-                    double>())
+                    double,
+                    bool>())
       .def("solve", &LightningPlanner::solve)
       .def("recall", &LightningPlanner::recallMode)
       .def("scratch", &LightningPlanner::scratchMode);
