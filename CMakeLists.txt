@@ -15,7 +15,7 @@ add_subdirectory(pybind11)
 add_subdirectory(ompl)
 
 include_directories(ompl/src ${CMAKE_CURRENT_BINARY_DIR}/ompl/src)
-pybind11_add_module(_omplpy wrapper.cpp)
+pybind11_add_module(_omplpy src/wrapper.cpp)
 target_link_libraries(_omplpy PRIVATE ompl ${Boost_LIBRARIES})
 
 #add_executable(main main.cpp)
