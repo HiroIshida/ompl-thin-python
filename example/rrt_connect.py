@@ -1,9 +1,25 @@
 import _omplpy
+import numpy as np
+import time
 #import matplotlib.pyplot as plt
-#planner = _omplpy.OMPLPlanner([0, 0], [1, 1], lambda x: True, 1000)
-#planner.solve([0.1, 0.1], [0.9, 0.9])
 
-lightning = _omplpy.LightningPlanner([0, 0], [1, 1], lambda x: True, 1000, True)
+def is_valid(x):
+    time.sleep(0.01)
+    return np.linalg.norm(np.array(x) - np.array([0.5, 0.5])) > 0.4
+
+
+#planner = _omplpy.OMPLPlanner([0, 0], [1, 1], is_valid, 1000, 0.05)
+#ret = planner.solve([0.1, 0.1], [0.9, 0.9])
+
+lightning = _omplpy.LightningPlanner([0, 0], [1, 1], is_valid, 100000, 0.05, True)
+lightning.solve([0.1, 0.1], [0.9, 0.9])
+paths = lightning.get_experienced_paths()
+print(paths)
+lightning.solve([0.12, 0.04], [0.93, 0.91])
+paths = lightning.get_experienced_paths()
+print(paths)
+
+lightning.recall()
 lightning.solve([0.1, 0.1], [0.9, 0.9])
 
 #setup = _omplpy.LightningSetup([0, 0], [1, 1], lambda x: True, 1000)

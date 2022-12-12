@@ -27,5 +27,6 @@ PYBIND11_MODULE(_omplpy, m)
                     bool>())
       .def("solve", &LightningPlanner::solve)
       .def("recall", &LightningPlanner::recallMode)
-      .def("scratch", &LightningPlanner::scratchMode);
+      .def("scratch", &LightningPlanner::scratchMode)
+      .def("get_experienced_paths", &LightningPlanner::getExperiencedPaths);
 }

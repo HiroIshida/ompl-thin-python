@@ -22,6 +22,7 @@
 #include "ompl/base/DiscreteMotionValidator.h"
 #include "ompl/base/MotionValidator.h"
 #include "ompl/base/Planner.h"
+#include "ompl/base/PlannerData.h"
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
@@ -210,6 +211,34 @@ struct LightningPlanner {
   {
     this->sw_.setup_->enablePlanningFromScratch(true);
     this->sw_.setup_->enablePlanningFromRecall(false);
+  }
+
+  std::vector<std::vector<std::vector<double>>> getExperiencedPaths()
+  {
+    const auto dim = sw_.setup_->getStateSpace()->getDimension();
+
+    const auto state_to_vec = [dim](const ob::State* state) {
+      const auto rs = state->as<ob::RealVectorStateSpace::StateType>();
+      std::vector<double> vec(dim);
+      for (size_t i = 0; i < dim; ++i) {
+        vec[i] = rs->values[i];
+      }
+      return vec;
+    };
+
+    std::vector<std::vector<std::vector<double>>> paths;
+
+    std::vector<ob::PlannerDataPtr> datas;
+    this->sw_.setup_->getAllPlannerDatas(datas);
+    for (const auto& data : datas) {
+      std::vector<std::vector<double>> path;
+      for (std::size_t i = 0; i < data->numVertices(); ++i) {
+        const auto vert = data->getVertex(i);
+        path.push_back(state_to_vec(vert.getState()));
+      }
+      paths.push_back(path);
+    }
+    return paths;
   }
 
   SetupWrapper<ot::Lightning> sw_;
