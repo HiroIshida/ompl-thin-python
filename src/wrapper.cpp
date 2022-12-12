@@ -23,10 +23,10 @@ PYBIND11_MODULE(_omplpy, m)
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,
                     size_t,
-                    double,
-                    bool>())
+                    double>())
       .def("solve", &LightningPlanner::solve)
       .def("recall", &LightningPlanner::recallMode)
       .def("scratch", &LightningPlanner::scratchMode)
-      .def("get_experienced_paths", &LightningPlanner::getExperiencedPaths);
+      .def("get_experienced_paths", &LightningPlanner::getExperiencedPaths)
+      .def("get_latest_activated_index", &LightningPlanner::getLatestActivatedIndex);
 }

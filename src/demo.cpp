@@ -9,9 +9,8 @@ int main()
   const auto is_valid = [](const std::vector<double>& vec) { return true; };
   const size_t max_is_valid_call = 1000;
   const double interval = 0.03;
-  const bool from_scratch = true;
 
-  auto planner = LightningPlanner(lb, ub, is_valid, max_is_valid_call, interval, from_scratch);
+  auto planner = LightningPlanner(lb, ub, is_valid, max_is_valid_call, interval);
 
   // get experience
   const auto start = std::vector<double>{0.1, 0.1};

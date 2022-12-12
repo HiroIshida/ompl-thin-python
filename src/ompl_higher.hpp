@@ -183,34 +183,63 @@ struct LightningPlanner {
                    std::vector<double> ub,
                    std::function<bool(std::vector<double>)> is_valid,
                    size_t max_is_valid_call,
-                   double interval,
-                   bool from_scratch)
+                   double interval)
       : sw_(SetupWrapper<ot::Lightning>(lb, ub, is_valid, max_is_valid_call, interval))
   {
     const std::string algo_name = "rrtconnect";
     const auto algo = this->sw_.create_algorithm(algo_name);
     this->sw_.setup_->setPlanner(algo);
     this->sw_.setup_->setRepairPlanner(algo);
-    this->sw_.setup_->enablePlanningFromScratch(from_scratch);
-    this->sw_.setup_->enablePlanningFromRecall(!from_scratch);
+    scratchMode();
   }
   std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
                                                         const std::vector<double>& goal)
   {
     this->sw_.setup_->clear();
-    return ::solve(this->sw_, start, goal);
+    const auto ret = ::solve(this->sw_, start, goal);
+    if (recall_mode_) {
+      recall_called_ = true;
+    }
+    return ret;
   }
 
   void recallMode()
   {
+    std::vector<ob::PlannerDataPtr> datas;
+    sw_.setup_->getAllPlannerDatas(datas);
+    if (datas.size() < 1) {
+      throw std::runtime_error("recall mode can be enabled only if planner have experiences");
+    }
+
     this->sw_.setup_->enablePlanningFromScratch(false);
     this->sw_.setup_->enablePlanningFromRecall(true);
+    this->recall_mode_ = true;
   }
 
   void scratchMode()
   {
     this->sw_.setup_->enablePlanningFromScratch(true);
     this->sw_.setup_->enablePlanningFromRecall(false);
+    this->recall_mode_ = false;
+  }
+
+  std::optional<size_t> getLatestActivatedIndex()
+  {
+    if (!recall_called_) {
+      // without this, segmentation fault occurs
+      return {};
+    }
+    std::vector<ob::PlannerDataPtr> datas;
+    sw_.setup_->getAllPlannerDatas(datas);
+    const auto& rrplanner = sw_.setup_->getLightningRetrieveRepairPlanner();
+    const ob::PlannerDataPtr activated = rrplanner.getChosenRecallPath();
+    const auto it = std::find(datas.begin(), datas.end(), activated);
+
+    if (it != datas.end()) {
+      return it - datas.begin();
+    } else {
+      return {};
+    }
   }
 
   std::vector<std::vector<std::vector<double>>> getExperiencedPaths()
@@ -242,4 +271,10 @@ struct LightningPlanner {
   }
 
   SetupWrapper<ot::Lightning> sw_;
+
+  /** \brief indicate that currently the planner is in recall mode */
+  bool recall_mode_{false};
+
+  /** \brief indicate solve called with recall mode. this indicates caches are save in recalling */
+  bool recall_called_{false};
 };
