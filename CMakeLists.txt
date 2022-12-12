@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.0.2)
 
+set(CMAKE_BUILD_TYPE Debug)
+add_compile_options(-fsanitize=address)
+add_link_options(-fsanitize=address)
+
 add_compile_options(-std=c++17)
 find_package(ompl REQUIRED)
 find_package(Boost REQUIRED COMPONENTS serialization)
