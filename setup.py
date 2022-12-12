@@ -5,7 +5,7 @@ install_requires = [
 ]
 
 setup(
-    name="ompl",
+    name="ompl-thin",
     version="0.0.0",
     description="thin ompl python wrapper",
     author="Hirokazu Ishida",
