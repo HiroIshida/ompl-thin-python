@@ -68,9 +68,7 @@ struct SetupWrapper {
 
     // TODO: make this configurable from constructor
     const auto si = this->setup_->getSpaceInformation();
-    si->setMotionValidator(std::make_shared<AllPassMotionValidator>(si));
-    si->setup();
-
+    // si->setMotionValidator(std::make_shared<AllPassMotionValidator>(si));
     setup_->setStateValidityChecker([this](const ob::State* s) { return this->is_valid(s); });
   }
 
@@ -101,6 +99,21 @@ struct SetupWrapper {
     }
     this->is_valid_call_count_++;
     return is_valid_(vec);
+  }
+
+  std::shared_ptr<ob::Planner> create_algorithm(const std::string& name, double interval)
+  {
+    const auto space_info = this->setup_->getSpaceInformation();
+    std::shared_ptr<ob::Planner> algo_out;
+    if (name.compare("rrtconnect") == 0) {
+      const auto algo = std::make_shared<og::RRTConnect>(space_info);
+      algo->setRange(interval);
+      algo_out = algo;
+      return std::static_pointer_cast<ob::Planner>(algo);
+    } else {
+      throw std::runtime_error("not supported");
+    }
+    return algo_out;
   }
 
   std::unique_ptr<SetupT> setup_;
@@ -147,17 +160,13 @@ struct OMPLPlanner {
   OMPLPlanner(std::vector<double> lb,
               std::vector<double> ub,
               std::function<bool(std::vector<double>)> is_valid,
-              size_t max_is_valid_call)
+              size_t max_is_valid_call,
+              double interval)
       : sw_(SetupWrapper<og::SimpleSetup>(lb, ub, is_valid, max_is_valid_call))
   {
-    const std::string algo = "rrtconnect";
-
-    if (algo.compare("rrtconnect") == 0) {
-      const auto space_info = this->sw_.setup_->getSpaceInformation();
-      this->sw_.setup_->setPlanner(std::make_shared<og::RRTConnect>(space_info));
-    } else {
-      throw std::runtime_error("not supported");
-    }
+    const std::string algo_name = "rrtconnect";
+    const auto algo = this->sw_.create_algorithm(algo_name, interval);
+    this->sw_.setup_->setPlanner(algo);
   }
   std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
                                                         const std::vector<double>& goal)
@@ -174,18 +183,12 @@ struct LightningPlanner {
                    std::vector<double> ub,
                    std::function<bool(std::vector<double>)> is_valid,
                    size_t max_is_valid_call,
+                   double interval,
                    bool from_scratch)
       : sw_(SetupWrapper<ot::Lightning>(lb, ub, is_valid, max_is_valid_call))
   {
     const std::string algo_name = "rrtconnect";
-
-    const auto space_info = this->sw_.setup_->getSpaceInformation();
-    std::shared_ptr<ob::Planner> algo;
-    if (algo_name.compare("rrtconnect") == 0) {
-      algo = std::make_shared<og::RRTConnect>(space_info);
-    } else {
-      throw std::runtime_error("not supported");
-    }
+    const auto algo = this->sw_.create_algorithm(algo_name, interval);
     this->sw_.setup_->setPlanner(algo);
     this->sw_.setup_->setRepairPlanner(algo);
     this->sw_.setup_->enablePlanningFromScratch(from_scratch);
@@ -220,14 +223,16 @@ PYBIND11_MODULE(_omplpy, m)
       .def(py::init<std::vector<double>,
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,
-                    size_t>())
+                    size_t,
+                    double>())
       .def("solve", &OMPLPlanner::solve);
   py::class_<LightningPlanner>(m, "LightningPlanner")
       .def(py::init<std::vector<double>,
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,
                     size_t,
-                    bool>())
+                    bool,
+                    double>())
       .def("solve", &LightningPlanner::solve)
       .def("recall", &LightningPlanner::recallMode)
       .def("scratch", &LightningPlanner::scratchMode);
