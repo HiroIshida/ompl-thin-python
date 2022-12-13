@@ -343,6 +343,8 @@ struct LightningPlanner : public PlannerBase<ot::Lightning> {
     return paths;
   }
 
+  size_t getExperiencesCount() { return setup_->getExperiencesCount(); }
+
   /** \brief indicate that currently the planner is in recall mode */
   bool recall_mode_{false};
 

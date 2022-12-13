@@ -34,5 +34,6 @@ PYBIND11_MODULE(_omplpy, m)
       .def("get_experienced_paths", &LightningPlanner::getExperiencedPaths)
       .def("dump", &LightningPlanner::dumpExperience)
       .def("load", &LightningPlanner::loadExperience)
-      .def("get_latest_activated_index", &LightningPlanner::getLatestActivatedIndex);
+      .def("get_latest_activated_index", &LightningPlanner::getLatestActivatedIndex)
+      .def("get_experiences_count", &LightningPlanner::getExperiencesCount);
 }

@@ -109,3 +109,6 @@ class LightningPlanner(_OMPLPlannerBase):
 
     def get_latest_activated_index(self) -> int:
         return self._planner.get_latest_activated_index()
+
+    def get_experiences_count(self) -> int:
+        return self._planner.get_experiences_count()
