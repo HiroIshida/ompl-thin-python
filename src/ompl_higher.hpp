@@ -5,8 +5,24 @@
 #include <ompl/base/spaces/RealVectorBounds.h>
 #include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/SimpleSetup.h>
+#include <ompl/geometric/planners/fmt/BFMT.h>
+#include <ompl/geometric/planners/fmt/FMT.h>
+#include <ompl/geometric/planners/informedtrees/ABITstar.h>
+#include <ompl/geometric/planners/informedtrees/AITstar.h>
+#include <ompl/geometric/planners/informedtrees/BITstar.h>
+#include <ompl/geometric/planners/kpiece/BKPIECE1.h>
+#include <ompl/geometric/planners/kpiece/KPIECE1.h>
+#include <ompl/geometric/planners/kpiece/LBKPIECE1.h>
+#include <ompl/geometric/planners/prm/LazyPRM.h>
+#include <ompl/geometric/planners/prm/LazyPRMstar.h>
+#include <ompl/geometric/planners/prm/PRM.h>
+#include <ompl/geometric/planners/prm/PRMstar.h>
+#include <ompl/geometric/planners/rrt/InformedRRTstar.h>
+#include <ompl/geometric/planners/rrt/RRT.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
+#include <ompl/geometric/planners/rrt/RRTsharp.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
+#include <ompl/geometric/planners/rrt/SORRTstar.h>
 #include <ompl/tools/experience/ExperienceSetup.h>
 #include <ompl/tools/lightning/Lightning.h>
 #include <ompl/util/PPM.h>
@@ -24,6 +40,13 @@
 #include "ompl/base/MotionValidator.h"
 #include "ompl/base/Planner.h"
 #include "ompl/base/PlannerData.h"
+
+#define STRING(str) #str
+#define ALLOCATE_ALGO(ALGO)                                   \
+  if (name.compare(#ALGO) == 0) {                             \
+    const auto algo = std::make_shared<og::ALGO>(space_info); \
+    return std::static_pointer_cast<ob::Planner>(algo);       \
+  }
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
@@ -107,14 +130,30 @@ struct SetupWrapper {
   {
     const auto space_info = this->setup_->getSpaceInformation();
     std::shared_ptr<ob::Planner> algo_out;
-    if (name.compare("rrtconnect") == 0) {
-      const auto algo = std::make_shared<og::RRTConnect>(space_info);
-      algo_out = algo;
-      return std::static_pointer_cast<ob::Planner>(algo);
-    } else {
-      throw std::runtime_error("not supported");
-    }
-    return algo_out;
+    // informed
+    ALLOCATE_ALGO(ABITstar);
+    ALLOCATE_ALGO(AITstar);
+    ALLOCATE_ALGO(BITstar);
+    // kpiece
+    ALLOCATE_ALGO(BKPIECE1);
+    ALLOCATE_ALGO(KPIECE1);
+    ALLOCATE_ALGO(LBKPIECE1);
+    // rrt
+    ALLOCATE_ALGO(RRTConnect);
+    ALLOCATE_ALGO(RRT);
+    ALLOCATE_ALGO(RRTstar);
+    ALLOCATE_ALGO(SORRTstar);
+    ALLOCATE_ALGO(RRTsharp);
+    ALLOCATE_ALGO(InformedRRTstar);
+    // rpm
+    ALLOCATE_ALGO(PRMstar);
+    ALLOCATE_ALGO(LazyPRMstar);
+    ALLOCATE_ALGO(LazyPRM);
+    ALLOCATE_ALGO(PRM);
+    // fmt
+    ALLOCATE_ALGO(BFMT);
+    ALLOCATE_ALGO(FMT);
+    throw std::runtime_error("algorithm " + name + " is not supported");
   }
 
   std::unique_ptr<SetupT> setup_;
@@ -162,10 +201,10 @@ struct OMPLPlanner {
               std::vector<double> ub,
               std::function<bool(std::vector<double>)> is_valid,
               size_t max_is_valid_call,
-              double interval)
+              double interval,
+              std::string algo_name)
       : sw_(SetupWrapper<og::SimpleSetup>(lb, ub, is_valid, max_is_valid_call, interval))
   {
-    const std::string algo_name = "rrtconnect";
     const auto algo = this->sw_.create_algorithm(algo_name);
     this->sw_.setup_->setPlanner(algo);
   }
@@ -184,10 +223,10 @@ struct LightningPlanner {
                    std::vector<double> ub,
                    std::function<bool(std::vector<double>)> is_valid,
                    size_t max_is_valid_call,
-                   double interval)
+                   double interval,
+                   std::string algo_name)
       : sw_(SetupWrapper<ot::Lightning>(lb, ub, is_valid, max_is_valid_call, interval))
   {
-    const std::string algo_name = "rrtconnect";
     const auto algo = this->sw_.create_algorithm(algo_name);
     this->sw_.setup_->setPlanner(algo);
     this->sw_.setup_->setRepairPlanner(algo);

@@ -16,14 +16,16 @@ PYBIND11_MODULE(_omplpy, m)
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,
                     size_t,
-                    double>())
+                    double,
+                    std::string>())
       .def("solve", &OMPLPlanner::solve);
   py::class_<LightningPlanner>(m, "_LightningPlanner")
       .def(py::init<std::vector<double>,
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,
                     size_t,
-                    double>())
+                    double,
+                    std::string>())
       .def("solve", &LightningPlanner::solve)
       .def("recall", &LightningPlanner::recallMode)
       .def("scratch", &LightningPlanner::scratchMode)

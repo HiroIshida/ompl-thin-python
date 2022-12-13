@@ -10,7 +10,7 @@ int main()
   const size_t max_is_valid_call = 1000;
   const double interval = 0.03;
 
-  auto planner = LightningPlanner(lb, ub, is_valid, max_is_valid_call, interval);
+  auto planner = LightningPlanner(lb, ub, is_valid, max_is_valid_call, interval, "RRTConnect");
 
   // get experience
   const auto start = std::vector<double>{0.1, 0.1};

@@ -1,10 +1,37 @@
 from . import _omplpy
+from enum import Enum
 from typing import Sequence, Any, Callable, Optional, List, Union
 import numpy as np
 from pathlib import Path
 
 VectorLike = Union[np.ndarray, Sequence[float]]
 PathLike = Union[Path, str]
+
+
+class Algorithm(Enum):
+    # informed
+    ABITstar = "ABITstar"
+    AITstar = "AITstar"
+    BITstar = "BITstar"
+    # kpiece
+    BKPIECE1 = "BKPIECE1"
+    KPIECE1 = "KPIECE1"
+    LBKPIECE1 = "LBKPIECE1"
+    # rrt
+    RRTConnect = "RRTConnect"
+    RRT = "RRT"
+    RRTstar = "RRTstar"
+    SORRTstar = "SORRTstar"
+    RRTsharp = "RRTsharp"
+    InformedRRTstar = "InformedRRTstar"
+    # prm
+    PRMstar = "PRMstar"
+    LazyPRMstar = "LazyPRMstar"
+    LazyPRM = "LazyPRM"
+    PRM = "PRM"
+    # fmt
+    BFMT = "BFMT"
+    FMT = "FMT"
 
 
 class Planner:
@@ -15,8 +42,8 @@ class Planner:
     _planner: Any
     _is_valid: Callable[[VectorLike], bool]
 
-    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[VectorLike], bool], n_max_is_valid: int, fraction: float):
-        self._planner = _omplpy._OMPLPlanner(lb, ub, is_valid, n_max_is_valid, fraction)
+    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[VectorLike], bool], n_max_is_valid: int, fraction: float, algo: Algorithm = Algorithm.RRTConnect):
+        self._planner = _omplpy._OMPLPlanner(lb, ub, is_valid, n_max_is_valid, fraction, algo.value)
         self._is_valid = is_valid
 
     def solve(self, start: VectorLike, goal: VectorLike) -> Optional[List[np.ndarray]]:
@@ -38,8 +65,8 @@ class LightningPlanner:
     _planner: Any
     _is_valid: Callable[[VectorLike], bool]
 
-    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[VectorLike], bool], n_max_is_valid: int, fraction: float):
-        self._planner = _omplpy._LightningPlanner(lb, ub, is_valid, n_max_is_valid, fraction)
+    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[VectorLike], bool], n_max_is_valid: int, fraction: float, algo: Algorithm = Algorithm.RRTConnect):
+        self._planner = _omplpy._LightningPlanner(lb, ub, is_valid, n_max_is_valid, fraction, algo.value)
         self._is_valid = is_valid
 
     def solve(self, start: VectorLike, goal: VectorLike) -> Optional[List[np.ndarray]]:
