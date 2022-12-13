@@ -30,6 +30,7 @@
 #include <boost/filesystem.hpp>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -68,24 +69,83 @@ class AllPassMotionValidator : public ob::MotionValidator
   }
 };
 
+class BoxMotionValidator : public ob::MotionValidator
+{
+ public:
+  BoxMotionValidator(const ob::SpaceInformationPtr& si, std::vector<double> width)
+      : ob::MotionValidator(si), width_(width)
+  {
+  }
+
+  bool checkMotion(const ob::State* s1, const ob::State* s2) const
+  {
+    const auto rs1 = s1->as<ob::RealVectorStateSpace::StateType>();
+    const auto rs2 = s2->as<ob::RealVectorStateSpace::StateType>();
+
+    // find longest (relative) axis index
+    double diff_longest_axis;
+    double max_diff = -std::numeric_limits<double>::infinity();
+    size_t longest_idx = 0;
+    for (size_t idx = 0; idx < si_->getStateDimension(); ++idx) {
+      const double check_width = width_[idx];
+      const double diff = rs2->values[idx] - rs1->values[idx];
+      const double abs_scaled_diff = std::abs(diff) / check_width;
+      if (abs_scaled_diff > max_diff) {
+        max_diff = abs_scaled_diff;
+        longest_idx = idx;
+        diff_longest_axis = diff;
+      }
+    }
+
+    // main
+    const auto s_test = si_->allocState()->as<ob::RealVectorStateSpace::StateType>();
+    si_->copyState(s_test, rs2);
+
+    double dist_travel = 0.0;
+    double step = (diff_longest_axis > 0) ? width_[longest_idx] : -width_[longest_idx];
+    while (dist_travel + std::abs(step) > std::abs(diff_longest_axis)) {
+      s_test->values[longest_idx] += step;
+      dist_travel += step;
+      if (!si_->isValid(s_test)) {
+        return false;
+      }
+    }
+    return (si_->isValid(rs2));
+  }
+
+  bool checkMotion(const ob::State* s1,
+                   const ob::State* s2,
+                   std::pair<ob::State*, double>& lastValid) const
+  {
+    return checkMotion(s1, s2);
+  }
+
+ private:
+  std::vector<double> width_;
+};
+
 struct CollisionAwareSpaceInformation {
   CollisionAwareSpaceInformation(std::vector<double> lb,
                                  std::vector<double> ub,
                                  std::function<bool(std::vector<double>)> is_valid,
                                  size_t max_is_valid_call,
-                                 double fraction)
-      : CollisionAwareSpaceInformation(bound2space(lb, ub), is_valid, max_is_valid_call, fraction)
+                                 std::vector<double> box_width)
+      : CollisionAwareSpaceInformation(bound2space(lb, ub), is_valid, max_is_valid_call, box_width)
   {
   }
 
   CollisionAwareSpaceInformation(ob::StateSpacePtr space,
                                  std::function<bool(std::vector<double>)> is_valid,
                                  size_t max_is_valid_call,
-                                 double fraction)
+                                 std::vector<double> box_width)
       : is_valid_(is_valid), is_valid_call_count_(0), max_is_valid_call_(max_is_valid_call)
   {
     si_ = std::make_shared<ob::SpaceInformation>(space);
-    si_->getStateSpace()->setLongestValidSegmentFraction(fraction);
+    if (box_width.size() == 1) {
+      si_->getStateSpace()->setLongestValidSegmentFraction(box_width.at(0));
+    } else {
+      si_->setMotionValidator(std::make_shared<BoxMotionValidator>(si_, box_width));
+    }
     si_->setup();
   }
 
@@ -134,11 +194,11 @@ class PlannerBase
               std::vector<double> ub,
               std::function<bool(std::vector<double>)> is_valid,
               size_t max_is_valid_call,
-              double interval)
+              std::vector<double> box_width)
       : csi_(nullptr), setup_(nullptr)
   {
     csi_ = std::make_unique<CollisionAwareSpaceInformation>(
-        lb, ub, is_valid, max_is_valid_call, interval);
+        lb, ub, is_valid, max_is_valid_call, box_width);
     setup_ = std::make_unique<SetupT>(csi_->si_);
     setup_->setStateValidityChecker([this](const ob::State* s) { return this->csi_->is_valid(s); });
   }
@@ -220,9 +280,9 @@ struct OMPLPlanner : public PlannerBase<og::SimpleSetup> {
               std::vector<double> ub,
               std::function<bool(std::vector<double>)> is_valid,
               size_t max_is_valid_call,
-              double interval,
+              std::vector<double> box_width,
               std::string algo_name)
-      : PlannerBase(lb, ub, is_valid, max_is_valid_call, interval)
+      : PlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
     const auto algo = create_algorithm(algo_name);
     setup_->setPlanner(algo);
@@ -234,9 +294,9 @@ struct LightningPlanner : public PlannerBase<ot::Lightning> {
                    std::vector<double> ub,
                    std::function<bool(std::vector<double>)> is_valid,
                    size_t max_is_valid_call,
-                   double interval,
+                   std::vector<double> box_width,
                    std::string algo_name)
-      : PlannerBase(lb, ub, is_valid, max_is_valid_call, interval)
+      : PlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
     const auto algo = create_algorithm(algo_name);
     setup_->setPlanner(algo);

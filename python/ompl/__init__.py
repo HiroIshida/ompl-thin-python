@@ -44,11 +44,13 @@ class _OMPLPlannerBase(ABC):
     _planner: Any
     _is_valid: Callable[[np.ndarray], bool]
 
-    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[np.ndarray], bool], n_max_is_valid: int, fraction: float, algo: Algorithm = Algorithm.RRTConnect):
+    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[np.ndarray], bool], n_max_is_valid: int, validation_box: Union[np.ndarray, float], algo: Algorithm = Algorithm.RRTConnect):
         lb = np.array(lb)
         ub = np.array(ub)
         planner_t = self.planner_type()
-        self._planner = planner_t(lb, ub, is_valid, n_max_is_valid, fraction, algo.value)
+        if isinstance(validation_box, float):
+            validation_box = np.array([validation_box])
+        self._planner = planner_t(lb, ub, is_valid, n_max_is_valid, validation_box, algo.value)
         self.reset_is_valid(is_valid)
 
     def solve(self, start: VectorLike, goal: VectorLike) -> Optional[List[np.ndarray]]:
