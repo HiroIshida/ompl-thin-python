@@ -40,6 +40,8 @@
 #include "ompl/base/MotionValidator.h"
 #include "ompl/base/Planner.h"
 #include "ompl/base/PlannerData.h"
+#include "ompl/base/SpaceInformation.h"
+#include "ompl/base/StateValidityChecker.h"
 
 #define STRING(str) #str
 #define ALLOCATE_ALGO(ALGO)                                   \
@@ -66,35 +68,25 @@ class AllPassMotionValidator : public ob::MotionValidator
   }
 };
 
-template <typename SetupT,
-          typename std::enable_if<std::is_base_of<og::SimpleSetup, SetupT>::value, int>::type = 0>
-struct SetupWrapper {
-  SetupWrapper(std::vector<double> lb,
-               std::vector<double> ub,
-               std::function<bool(std::vector<double>)> is_valid,
-               size_t max_is_valid_call,
-               double fraction)
-      : SetupWrapper(bound2space(lb, ub), is_valid, max_is_valid_call, fraction)
+struct CollisionAwareSpaceInformation {
+  CollisionAwareSpaceInformation(std::vector<double> lb,
+                                 std::vector<double> ub,
+                                 std::function<bool(std::vector<double>)> is_valid,
+                                 size_t max_is_valid_call,
+                                 double fraction)
+      : CollisionAwareSpaceInformation(bound2space(lb, ub), is_valid, max_is_valid_call, fraction)
   {
   }
 
-  SetupWrapper(ob::StateSpacePtr space,
-               std::function<bool(std::vector<double>)> is_valid,
-               size_t max_is_valid_call,
-               double fraction)
-      : setup_(nullptr),
-        is_valid_(is_valid),
-        is_valid_call_count_(0),
-        max_is_valid_call_(max_is_valid_call)
+  CollisionAwareSpaceInformation(ob::StateSpacePtr space,
+                                 std::function<bool(std::vector<double>)> is_valid,
+                                 size_t max_is_valid_call,
+                                 double fraction)
+      : is_valid_(is_valid), is_valid_call_count_(0), max_is_valid_call_(max_is_valid_call)
   {
-    setup_ = std::make_unique<SetupT>(space);
-
-    // TODO: make this configurable from constructor
-    const auto si = this->setup_->getSpaceInformation();
-    si->getStateSpace()->setLongestValidSegmentFraction(fraction);
-    si->setup();
-    // si->setMotionValidator(std::make_shared<AllPassMotionValidator>(si));
-    setup_->setStateValidityChecker([this](const ob::State* s) { return this->is_valid(s); });
+    si_ = std::make_shared<ob::SpaceInformation>(space);
+    si_->getStateSpace()->setLongestValidSegmentFraction(fraction);
+    si_->setup();
   }
 
   void resetCount() { this->is_valid_call_count_ = 0; }
@@ -116,19 +108,77 @@ struct SetupWrapper {
 
   bool is_valid(const ob::State* state)
   {
-    const size_t dim = this->setup_->getSpaceInformation()->getStateDimension();
+    const size_t dim = si_->getStateDimension();
     auto vec = std::vector<double>(dim);
     const auto& rs = state->as<ob::RealVectorStateSpace::StateType>();
     for (size_t i = 0; i < vec.size(); ++i) {
       vec[i] = rs->values[i];
     }
     this->is_valid_call_count_++;
+
     return is_valid_(vec);
+  }
+
+  ob::SpaceInformationPtr si_;
+  std::function<bool(std::vector<double>)> is_valid_;
+  size_t is_valid_call_count_;
+  const size_t max_is_valid_call_;
+};
+
+template <typename SetupT,
+          typename std::enable_if<std::is_base_of<og::SimpleSetup, SetupT>::value, int>::type = 0>
+class PlannerBase
+{
+ public:
+  PlannerBase(std::vector<double> lb,
+              std::vector<double> ub,
+              std::function<bool(std::vector<double>)> is_valid,
+              size_t max_is_valid_call,
+              double interval)
+      : csi_(nullptr), setup_(nullptr)
+  {
+    csi_ = std::make_unique<CollisionAwareSpaceInformation>(
+        lb, ub, is_valid, max_is_valid_call, interval);
+    setup_ = std::make_unique<SetupT>(csi_->si_);
+    setup_->setStateValidityChecker([this](const ob::State* s) { return this->csi_->is_valid(s); });
+  }
+
+  std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
+                                                        const std::vector<double>& goal)
+  {
+    setup_->clear();
+    csi_->resetCount();
+    const auto space = setup_->getStateSpace();
+    ob::ScopedState<ob::RealVectorStateSpace> start_state(space), goal_state(space);
+
+    const size_t dim = start.size();
+
+    for (size_t i = 0; i < dim; ++i) {
+      start_state->values[i] = start[i];
+      goal_state->values[i] = goal[i];
+    }
+    setup_->setStartAndGoalStates(start_state, goal_state);
+
+    std::function<bool()> fn = [this]() { return csi_->is_terminatable(); };
+    const auto result = setup_->solve(fn);
+    if (not result) {
+      return {};
+    }
+    const auto p = setup_->getSolutionPath().template as<og::PathGeometric>();
+    const auto& states = p->getStates();
+    auto trajectory = std::vector<std::vector<double>>(states.size(), std::vector<double>(dim));
+    for (size_t i = 0; i < states.size(); ++i) {
+      const auto& rs = states[i]->template as<ob::RealVectorStateSpace::StateType>();
+      for (size_t j = 0; j < dim; ++j) {
+        trajectory[i][j] = rs->values[j];
+      }
+    }
+    return trajectory;
   }
 
   std::shared_ptr<ob::Planner> create_algorithm(const std::string& name)
   {
-    const auto space_info = this->setup_->getSpaceInformation();
+    const auto space_info = csi_->si_;
     std::shared_ptr<ob::Planner> algo_out;
     // informed
     ALLOCATE_ALGO(ABITstar);
@@ -156,87 +206,42 @@ struct SetupWrapper {
     throw std::runtime_error("algorithm " + name + " is not supported");
   }
 
+  std::unique_ptr<CollisionAwareSpaceInformation> csi_;
   std::unique_ptr<SetupT> setup_;
-  std::function<bool(std::vector<double>)> is_valid_;
-  size_t is_valid_call_count_;
-  const size_t max_is_valid_call_;
 };
 
-template <typename SetupT,
-          typename std::enable_if<std::is_base_of<og::SimpleSetup, SetupT>::value, int>::type = 0>
-std::optional<std::vector<std::vector<double>>> solve(const SetupWrapper<SetupT>& sw,
-                                                      const std::vector<double>& start,
-                                                      const std::vector<double>& goal)
-{
-  const auto space = sw.setup_->getStateSpace();
-  ob::ScopedState<ob::RealVectorStateSpace> start_state(space), goal_state(space);
-
-  const size_t dim = start.size();
-
-  for (size_t i = 0; i < dim; ++i) {
-    start_state->values[i] = start[i];
-    goal_state->values[i] = goal[i];
-  }
-  sw.setup_->setStartAndGoalStates(start_state, goal_state);
-
-  std::function<bool()> fn = [&sw]() { return sw.is_terminatable(); };
-  const auto result = sw.setup_->solve(fn);
-  if (not result) {
-    return {};
-  }
-  const auto p = sw.setup_->getSolutionPath().template as<og::PathGeometric>();
-  const auto& states = p->getStates();
-  auto trajectory = std::vector<std::vector<double>>(states.size(), std::vector<double>(dim));
-  for (size_t i = 0; i < states.size(); ++i) {
-    const auto& rs = states[i]->template as<ob::RealVectorStateSpace::StateType>();
-    for (size_t j = 0; j < dim; ++j) {
-      trajectory[i][j] = rs->values[j];
-    }
-  }
-  return trajectory;
-}
-
-struct OMPLPlanner {
+struct OMPLPlanner : public PlannerBase<og::SimpleSetup> {
   OMPLPlanner(std::vector<double> lb,
               std::vector<double> ub,
               std::function<bool(std::vector<double>)> is_valid,
               size_t max_is_valid_call,
               double interval,
               std::string algo_name)
-      : sw_(SetupWrapper<og::SimpleSetup>(lb, ub, is_valid, max_is_valid_call, interval))
+      : PlannerBase(lb, ub, is_valid, max_is_valid_call, interval)
   {
-    const auto algo = this->sw_.create_algorithm(algo_name);
-    this->sw_.setup_->setPlanner(algo);
+    const auto algo = create_algorithm(algo_name);
+    setup_->setPlanner(algo);
   }
-  std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
-                                                        const std::vector<double>& goal)
-  {
-    this->sw_.setup_->clear();
-    return ::solve(this->sw_, start, goal);
-  }
-
-  SetupWrapper<og::SimpleSetup> sw_;
 };
 
-struct LightningPlanner {
+struct LightningPlanner : public PlannerBase<ot::Lightning> {
   LightningPlanner(std::vector<double> lb,
                    std::vector<double> ub,
                    std::function<bool(std::vector<double>)> is_valid,
                    size_t max_is_valid_call,
                    double interval,
                    std::string algo_name)
-      : sw_(SetupWrapper<ot::Lightning>(lb, ub, is_valid, max_is_valid_call, interval))
+      : PlannerBase(lb, ub, is_valid, max_is_valid_call, interval)
   {
-    const auto algo = this->sw_.create_algorithm(algo_name);
-    this->sw_.setup_->setPlanner(algo);
-    this->sw_.setup_->setRepairPlanner(algo);
+    const auto algo = create_algorithm(algo_name);
+    setup_->setPlanner(algo);
+    setup_->setRepairPlanner(algo);
     scratchMode();
   }
   std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
                                                         const std::vector<double>& goal)
   {
-    this->sw_.setup_->clear();
-    const auto ret = ::solve(this->sw_, start, goal);
+    const auto ret = PlannerBase<ot::Lightning>::solve(start, goal);
     if (recall_mode_) {
       recall_called_ = true;
     }
@@ -246,21 +251,21 @@ struct LightningPlanner {
   void recallMode()
   {
     std::vector<ob::PlannerDataPtr> datas;
-    sw_.setup_->getAllPlannerDatas(datas);
+    setup_->getAllPlannerDatas(datas);
     if (datas.size() < 1) {
       throw std::runtime_error("recall mode can be enabled only if planner have experiences");
     }
 
-    this->sw_.setup_->enablePlanningFromScratch(false);
-    this->sw_.setup_->enablePlanningFromRecall(true);
-    this->recall_mode_ = true;
+    setup_->enablePlanningFromScratch(false);
+    setup_->enablePlanningFromRecall(true);
+    recall_mode_ = true;
   }
 
   void scratchMode()
   {
-    this->sw_.setup_->enablePlanningFromScratch(true);
-    this->sw_.setup_->enablePlanningFromRecall(false);
-    this->recall_mode_ = false;
+    setup_->enablePlanningFromScratch(true);
+    setup_->enablePlanningFromRecall(false);
+    recall_mode_ = false;
   }
 
   std::optional<size_t> getLatestActivatedIndex()
@@ -270,8 +275,8 @@ struct LightningPlanner {
       return {};
     }
     std::vector<ob::PlannerDataPtr> datas;
-    sw_.setup_->getAllPlannerDatas(datas);
-    const auto& rrplanner = sw_.setup_->getLightningRetrieveRepairPlanner();
+    setup_->getAllPlannerDatas(datas);
+    const auto& rrplanner = setup_->getLightningRetrieveRepairPlanner();
     const ob::PlannerDataPtr activated = rrplanner.getChosenRecallPath();
     const auto it = std::find(datas.begin(), datas.end(), activated);
 
@@ -284,30 +289,30 @@ struct LightningPlanner {
 
   void dumpExperience(const std::string& file_name)
   {
-    sw_.setup_->setFilePath(file_name);
-    const bool success = sw_.setup_->save();
+    setup_->setFilePath(file_name);
+    const bool success = setup_->save();
     if (!success) {
       throw std::runtime_error("failed to save to " + file_name);
     }
-    sw_.setup_->setFilePath("");  // I don't want to have filepath as internal state
+    setup_->setFilePath("");  // I don't want to have filepath as internal state
   }
 
   void loadExperience(const std::string& file_name)
   {
-    const size_t exp_count = sw_.setup_->getExperiencesCount();
+    const size_t exp_count = setup_->getExperiencesCount();
     if (exp_count > 0) {
       const std::string message =
           "cannot load because you have " + std::to_string(exp_count) + " experiences";
       throw std::runtime_error(message);
     }
-    sw_.setup_->setFilePath(file_name);
-    sw_.setup_->setup();          // load database
-    sw_.setup_->setFilePath("");  // I don't want to have filepath as internal state
+    setup_->setFilePath(file_name);
+    setup_->setup();          // load database
+    setup_->setFilePath("");  // I don't want to have filepath as internal state
   }
 
   std::vector<std::vector<std::vector<double>>> getExperiencedPaths()
   {
-    const auto dim = sw_.setup_->getStateSpace()->getDimension();
+    const auto dim = setup_->getStateSpace()->getDimension();
 
     const auto state_to_vec = [dim](const ob::State* state) {
       const auto rs = state->as<ob::RealVectorStateSpace::StateType>();
@@ -321,7 +326,7 @@ struct LightningPlanner {
     std::vector<std::vector<std::vector<double>>> paths;
 
     std::vector<ob::PlannerDataPtr> datas;
-    this->sw_.setup_->getAllPlannerDatas(datas);
+    setup_->getAllPlannerDatas(datas);
     for (const auto& data : datas) {
       std::vector<std::vector<double>> path;
       for (std::size_t i = 0; i < data->numVertices(); ++i) {
@@ -332,8 +337,6 @@ struct LightningPlanner {
     }
     return paths;
   }
-
-  SetupWrapper<ot::Lightning> sw_;
 
   /** \brief indicate that currently the planner is in recall mode */
   bool recall_mode_{false};
