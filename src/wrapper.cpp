@@ -18,6 +18,7 @@ PYBIND11_MODULE(_omplpy, m)
                     size_t,
                     double,
                     std::string>())
+      .def("reset_is_valid", &OMPLPlanner::resetIsValid)
       .def("solve", &OMPLPlanner::solve);
   py::class_<LightningPlanner>(m, "_LightningPlanner")
       .def(py::init<std::vector<double>,
@@ -26,6 +27,7 @@ PYBIND11_MODULE(_omplpy, m)
                     size_t,
                     double,
                     std::string>())
+      .def("reset_is_valid", &LightningPlanner::resetIsValid)
       .def("solve", &LightningPlanner::solve)
       .def("recall", &LightningPlanner::recallMode)
       .def("scratch", &LightningPlanner::scratchMode)

@@ -49,7 +49,7 @@ class _OMPLPlannerBase(ABC):
         ub = np.array(ub)
         planner_t = self.planner_type()
         self._planner = planner_t(lb, ub, is_valid, n_max_is_valid, fraction, algo.value)
-        self._is_valid = is_valid
+        self.reset_is_valid(is_valid)
 
     def solve(self, start: VectorLike, goal: VectorLike) -> Optional[List[np.ndarray]]:
         start = np.array(start)
@@ -63,6 +63,10 @@ class _OMPLPlannerBase(ABC):
         for i in range(len(ret)):
             ret[i] = np.array(ret[i])
         return ret
+
+    def reset_is_valid(self, is_valid: Callable[[np.ndarray], bool]) -> None:
+        self._planner.reset_is_valid(is_valid)
+        self._is_valid = is_valid
 
     @abstractmethod
     def planner_type(self) -> Any:

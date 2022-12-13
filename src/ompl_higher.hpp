@@ -176,6 +176,11 @@ class PlannerBase
     return trajectory;
   }
 
+  void resetIsValid(const std::function<bool(std::vector<double>)>& is_valid)
+  {
+    csi_->is_valid_ = is_valid;
+  }
+
   std::shared_ptr<ob::Planner> create_algorithm(const std::string& name)
   {
     const auto space_info = csi_->si_;
