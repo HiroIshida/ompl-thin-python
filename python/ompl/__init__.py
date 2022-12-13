@@ -42,14 +42,19 @@ class _OMPLPlannerBase(ABC):
     One important reason of this class is exposing type hinting
     """
     _planner: Any
-    _is_valid: Callable[[VectorLike], bool]
+    _is_valid: Callable[[np.ndarray], bool]
 
-    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[VectorLike], bool], n_max_is_valid: int, fraction: float, algo: Algorithm = Algorithm.RRTConnect):
+    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[np.ndarray], bool], n_max_is_valid: int, fraction: float, algo: Algorithm = Algorithm.RRTConnect):
+        lb = np.array(lb)
+        ub = np.array(ub)
         planner_t = self.planner_type()
         self._planner = planner_t(lb, ub, is_valid, n_max_is_valid, fraction, algo.value)
         self._is_valid = is_valid
 
     def solve(self, start: VectorLike, goal: VectorLike) -> Optional[List[np.ndarray]]:
+        start = np.array(start)
+        goal = np.array(goal)
+
         assert self._is_valid(start)
         assert self._is_valid(goal)
         ret = self._planner.solve(start, goal)
