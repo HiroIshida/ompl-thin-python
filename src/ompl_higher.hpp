@@ -145,11 +145,10 @@ struct CollisionAwareSpaceInformation {
       : is_valid_(is_valid), is_valid_call_count_(0), max_is_valid_call_(max_is_valid_call)
   {
     si_ = std::make_shared<ob::SpaceInformation>(space);
-    if (box_width.size() == 1) {
-      si_->getStateSpace()->setLongestValidSegmentFraction(box_width.at(0));
-    } else {
-      si_->setMotionValidator(std::make_shared<BoxMotionValidator>(si_, box_width));
+    if (box_width.size() != space->getDimension()) {
+      throw std::runtime_error("box dimension and space dimension mismatch");
     }
+    si_->setMotionValidator(std::make_shared<BoxMotionValidator>(si_, box_width));
     si_->setup();
   }
 
