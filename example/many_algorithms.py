@@ -10,11 +10,15 @@ def is_valid(x) -> bool:
 start = np.array([0.1, 0.1])
 goal = np.array([0.9, 0.9])
 
-skips = ["AITstar"]
+skips = ["AITstar", "LazyPRMstar"]
 
 for algo in Algorithm:
     print(algo)
     if algo.value in skips:
         continue
-    planner = Planner([0, 0], [1, 1], is_valid, 1000, 0.05, algo)
-    ret = planner.solve(start, goal)
+    planner = Planner([0, 0], [1, 1], is_valid, 10000, 0.05, algo)
+    trajectory = planner.solve(start, goal)
+    assert trajectory is not None
+    if trajectory is not None:
+        for p in trajectory:
+            assert is_valid(p)
