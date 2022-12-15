@@ -96,16 +96,20 @@ class BoxMotionValidator : public ob::MotionValidator
         diff_longest_axis = diff;
       }
     }
+    if (std::abs(diff_longest_axis) < 1e-6) {
+      return true;
+    }
 
     // main
     const auto s_test = si_->allocState()->as<ob::RealVectorStateSpace::StateType>();
-    si_->copyState(s_test, rs2);
 
-    double dist_travel = 0.0;
-    double step = (diff_longest_axis > 0) ? width_[longest_idx] : -width_[longest_idx];
-    while (dist_travel + std::abs(step) > std::abs(diff_longest_axis)) {
-      s_test->values[longest_idx] += step;
-      dist_travel += step;
+    const auto space = si_->getStateSpace();
+    const double step_ratio = width_[longest_idx] / std::abs(diff_longest_axis);
+
+    double travel_rate = 0.0;
+    while (travel_rate + step_ratio < 1.0) {
+      travel_rate += step_ratio;
+      space->interpolate(rs1, rs2, travel_rate, s_test);
       if (!si_->isValid(s_test)) {
         return false;
       }
