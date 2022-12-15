@@ -129,19 +129,19 @@ class BoxMotionValidator : public ob::MotionValidator
 };
 
 struct CollisionAwareSpaceInformation {
-  CollisionAwareSpaceInformation(std::vector<double> lb,
-                                 std::vector<double> ub,
-                                 std::function<bool(std::vector<double>)> is_valid,
+  CollisionAwareSpaceInformation(const std::vector<double>& lb,
+                                 const std::vector<double>& ub,
+                                 const std::function<bool(std::vector<double>)>& is_valid,
                                  size_t max_is_valid_call,
-                                 std::vector<double> box_width)
+                                 const std::vector<double>& box_width)
       : CollisionAwareSpaceInformation(bound2space(lb, ub), is_valid, max_is_valid_call, box_width)
   {
   }
 
-  CollisionAwareSpaceInformation(ob::StateSpacePtr space,
-                                 std::function<bool(std::vector<double>)> is_valid,
+  CollisionAwareSpaceInformation(const ob::StateSpacePtr space,
+                                 const std::function<bool(std::vector<double>)>& is_valid,
                                  size_t max_is_valid_call,
-                                 std::vector<double> box_width)
+                                 const std::vector<double>& box_width)
       : is_valid_(is_valid), is_valid_call_count_(0), max_is_valid_call_(max_is_valid_call)
   {
     si_ = std::make_shared<ob::SpaceInformation>(space);
@@ -193,11 +193,11 @@ template <typename SetupT,
 class PlannerBase
 {
  public:
-  PlannerBase(std::vector<double> lb,
-              std::vector<double> ub,
-              std::function<bool(std::vector<double>)> is_valid,
+  PlannerBase(const std::vector<double>& lb,
+              const std::vector<double>& ub,
+              const std::function<bool(std::vector<double>)>& is_valid,
               size_t max_is_valid_call,
-              std::vector<double> box_width)
+              const std::vector<double>& box_width)
       : csi_(nullptr), setup_(nullptr)
   {
     csi_ = std::make_unique<CollisionAwareSpaceInformation>(
@@ -279,12 +279,12 @@ class PlannerBase
 };
 
 struct OMPLPlanner : public PlannerBase<og::SimpleSetup> {
-  OMPLPlanner(std::vector<double> lb,
-              std::vector<double> ub,
-              std::function<bool(std::vector<double>)> is_valid,
+  OMPLPlanner(const std::vector<double>& lb,
+              const std::vector<double>& ub,
+              const std::function<bool(std::vector<double>)>& is_valid,
               size_t max_is_valid_call,
-              std::vector<double> box_width,
-              std::string algo_name)
+              const std::vector<double>& box_width,
+              const std::string& algo_name)
       : PlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
     const auto algo = create_algorithm(algo_name);
@@ -293,12 +293,12 @@ struct OMPLPlanner : public PlannerBase<og::SimpleSetup> {
 };
 
 struct LightningPlanner : public PlannerBase<ot::Lightning> {
-  LightningPlanner(std::vector<double> lb,
-                   std::vector<double> ub,
-                   std::function<bool(std::vector<double>)> is_valid,
+  LightningPlanner(const std::vector<double>& lb,
+                   const std::vector<double>& ub,
+                   const std::function<bool(std::vector<double>)>& is_valid,
                    size_t max_is_valid_call,
-                   std::vector<double> box_width,
-                   std::string algo_name)
+                   const std::vector<double>& box_width,
+                   const std::string& algo_name)
       : PlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
     const auto algo = create_algorithm(algo_name);
