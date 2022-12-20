@@ -41,6 +41,7 @@
 #include "ompl/base/MotionValidator.h"
 #include "ompl/base/Planner.h"
 #include "ompl/base/PlannerData.h"
+#include "ompl/base/PlannerStatus.h"
 #include "ompl/base/SpaceInformation.h"
 #include "ompl/base/StateValidityChecker.h"
 
@@ -224,7 +225,7 @@ class PlannerBase
 
     std::function<bool()> fn = [this]() { return csi_->is_terminatable(); };
     const auto result = setup_->solve(fn);
-    if (not result) {
+    if (not result || result == ob::PlannerStatus::APPROXIMATE_SOLUTION) {
       return {};
     }
     const auto p = setup_->getSolutionPath().template as<og::PathGeometric>();
