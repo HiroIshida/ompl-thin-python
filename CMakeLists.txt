@@ -15,6 +15,7 @@ ADD_DEFINITIONS(-DEIGEN_NO_DEBUG)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
 add_subdirectory(pybind11)
+option(OMPL_REGISTRATION OFF)  # avoid popup in browser
 add_subdirectory(ompl)
 
 include_directories(ompl/src ${CMAKE_CURRENT_BINARY_DIR}/ompl/src)
