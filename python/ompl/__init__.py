@@ -7,6 +7,7 @@ from pathlib import Path
 from . import _omplpy
 
 VectorLike = Union[np.ndarray, Sequence[float]]
+IsValidFunc = Callable[[List[float]], bool]
 PathLike = Union[Path, str]
 
 
@@ -42,9 +43,16 @@ class _OMPLPlannerBase(ABC):
     One important reason of this class is exposing type hinting
     """
     _planner: Any
-    _is_valid: Callable[[np.ndarray], bool]
+    _is_valid: IsValidFunc
 
-    def __init__(self, lb: VectorLike, ub: VectorLike, is_valid: Callable[[np.ndarray], bool], n_max_is_valid: int, validation_box: Union[np.ndarray, float], algo: Algorithm = Algorithm.RRTConnect):
+    def __init__(self,
+            lb: VectorLike,
+            ub: VectorLike,
+            is_valid: IsValidFunc,
+            n_max_is_valid: int,
+            validation_box: Union[np.ndarray, float],
+            algo: Algorithm = Algorithm.RRTConnect):
+
         lb = np.array(lb)
         ub = np.array(ub)
         assert lb.ndim == 1
@@ -61,8 +69,8 @@ class _OMPLPlannerBase(ABC):
         start = np.array(start)
         goal = np.array(goal)
 
-        assert self._is_valid(start)
-        assert self._is_valid(goal)
+        assert self._is_valid(start.tolist())
+        assert self._is_valid(goal.tolist())
         ret = self._planner.solve(start, goal)
         if ret is None:
             return ret
@@ -70,7 +78,7 @@ class _OMPLPlannerBase(ABC):
             ret[i] = np.array(ret[i])
         return ret
 
-    def reset_is_valid(self, is_valid: Callable[[np.ndarray], bool]) -> None:
+    def reset_is_valid(self, is_valid: IsValidFunc) -> None:
         self._planner.reset_is_valid(is_valid)
         self._is_valid = is_valid
 
