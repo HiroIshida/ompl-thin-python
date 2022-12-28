@@ -4,13 +4,17 @@
 
 #include <vector>
 
+#include "ompl/util/RandomNumbers.h"
 #include "ompl_higher.hpp"
 
 namespace py = pybind11;
 
+void setGlobalSeed(size_t seed) { ompl::RNG::setSeed(seed); }
+
 PYBIND11_MODULE(_omplpy, m)
 {
   m.doc() = "unofficial ompl python wrapper";
+  m.def("set_random_seed", &setGlobalSeed);
   py::class_<OMPLPlanner>(m, "_OMPLPlanner")
       .def(py::init<std::vector<double>,
                     std::vector<double>,

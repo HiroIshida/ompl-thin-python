@@ -37,6 +37,10 @@ class Algorithm(Enum):
     FMT = "FMT"
 
 
+def set_random_seed(seed: int) -> None:
+    _omplpy.set_random_seed(seed)
+
+
 class _OMPLPlannerBase(ABC):
     """
     An additional higher layer wrapper.
