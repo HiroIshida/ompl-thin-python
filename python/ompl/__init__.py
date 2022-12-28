@@ -37,7 +37,7 @@ class Algorithm(Enum):
     FMT = "FMT"
 
 
-def set_random_seed(seed: int) -> None:
+def set_ompl_random_seed(seed: int) -> None:
     _omplpy.set_random_seed(seed)
 
 

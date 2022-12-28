@@ -1,4 +1,4 @@
-from ompl import Planner, Algorithm, set_random_seed
+from ompl import Planner, Algorithm, set_ompl_random_seed
 import numpy as np
 import time
 
@@ -11,7 +11,7 @@ start = np.array([0.1, 0.1])
 goal = np.array([0.9, 0.9])
 
 skips = ["AITstar", "LazyPRMstar"]
-set_random_seed(0)
+set_ompl_random_seed(0)
 
 for algo in Algorithm:
     print(algo)
