@@ -225,7 +225,11 @@ class PlannerBase
 
     std::function<bool()> fn = [this]() { return csi_->is_terminatable(); };
     const auto result = setup_->solve(fn);
-    if (not result || result == ob::PlannerStatus::APPROXIMATE_SOLUTION) {
+    if (not result){
+      return {};
+    }
+    if (result == ob::PlannerStatus::APPROXIMATE_SOLUTION){
+      OMPL_INFORM("reporeted to be solved. But reject it because it'S approx solution");
       return {};
     }
     const auto p = setup_->getSolutionPath().template as<og::PathGeometric>();
