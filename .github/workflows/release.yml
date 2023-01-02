@@ -29,4 +29,4 @@ jobs:
               file: release/Dockerfile
         - name: upload to pypi
           run: |
-            docker run pypi_release:latest /bin/bash -i -c 'source ~/.bashrc; twine upload --skip-existing -u __token__ -p ${{ secrets.PYPI_TOKEN_OMPLTHIN }} $HOME/ompl-python-thin/dist/*'
+            docker run pypi_release:latest /bin/bash -i -c 'source ~/.bashrc; twine upload --skip-existing -u __token__ -p ${{ secrets.PYPI_TOKEN_OMPLTHIN }} $HOME/ompl-thin-python/dist/*'
