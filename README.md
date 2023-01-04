@@ -6,7 +6,9 @@ Advantage of this package mainly likes in quickness and simpleness of building, 
 ## installation
 The package is available on [pypi](https://pypi.org/project/ompl-thin/). So, to install you just need to
 ```bash
-sudo apt install libboost-filesystem-dev libboost-serialization-dev -y  # shared dependency
 pip3 install ompl-thin
 ```
-NOTE: binary distribution is available only for x86_64. For other architecture, only source distributions are available and takes few minutes to install.
+NOTE: binary distribution is available only for x86_64. For other architecture, only source distributions are available and takes few minutes to install. Also, before installation, you need to run the following to get shared dependency.
+```
+sudo apt install libboost-filesystem-dev libboost-serialization-dev -y
+```
