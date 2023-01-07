@@ -10,5 +10,5 @@ pip3 install ompl-thin
 ```
 NOTE: binary distribution is available only for x86_64. For other architecture, only source distributions are available and takes few minutes to install. Also, before installation, you need to run the following to get shared dependency.
 ```
-sudo apt install libboost-filesystem-dev libboost-serialization-dev -y
+sudo apt install libboost-all-dev -y
 ```
