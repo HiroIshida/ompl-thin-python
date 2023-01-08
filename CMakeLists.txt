@@ -22,9 +22,6 @@ include_directories(ompl/src ${CMAKE_CURRENT_BINARY_DIR}/ompl/src)
 pybind11_add_module(_omplpy src/wrapper.cpp)
 target_link_libraries(_omplpy PRIVATE ompl ${Boost_LIBRARIES})
 
-add_executable(demo src/demo.cpp)
-target_link_libraries(demo ompl ${Boost_LIBRARIES})
-
 set(PIP_INSTALL ON)
 if(PIP_INSTALL)
     install(TARGETS _omplpy DESTINATION .)
