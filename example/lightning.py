@@ -45,7 +45,10 @@ if __name__ == "__main__":
         trajectory = planner.solve(sample_valid(), sample_valid())
         db.add_experience(np.array(trajectory))
         print("db count: {}".format(db.get_experiences_count()))
-    lightning = LightningPlanner(db, [0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTstar)
+    db.save("tmp.db")
+    db_again = LightningDB(2)
+    db_again.load("tmp.db")
+    lightning = LightningPlanner(db_again, [0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTstar)
 
     ts = time.time()
     lightning_path = lightning.solve([0.01, 0.01], [0.99, 0.99])

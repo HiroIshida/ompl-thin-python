@@ -8,7 +8,6 @@ from . import _omplpy
 
 VectorLike = Union[np.ndarray, Sequence[float]]
 IsValidFunc = Callable[[List[float]], bool]
-PathLike = Union[Path, str]
 
 
 class Algorithm(Enum):
@@ -125,9 +124,8 @@ class LightningDB(_omplpy._LightningDB):
         super().__init__(dim)
 
     def add_experience(self, experience: List[np.ndarray]) -> None:
-        assert experience.ndim == 2
-        assert experience.shape[1] == self.dim
-        super().add_experience(experience.tolist())
+        assert experience[0].shape == (self.dim,)
+        super().add_experience(np.array(experience).tolist())
 
     def get_experienced_paths(self) -> List[np.ndarray]:
         paths = super().get_experienced_paths()
@@ -160,6 +158,16 @@ class LightningPlanner(_OMPLPlannerBase):
         self._planner = planner_t(db, lb, ub, is_valid, n_max_is_valid, validation_box, algo.value)
         self.reset_is_valid(is_valid)
 
+    def save(self, path: Union[Path, str]) -> None:
+        if isinstance(path, Path):
+            path = str(path.expanduser())
+        self._planner.dump(path)
+
+    @classmethod
+    def load(self, path: Union[Path, str]) -> None:
+        if isinstance(path, Path):
+            path = str(path.expanduser())
+        self._planner.load(path)
 
     def planner_type(self) -> Any:
         return _omplpy._LightningPlanner

@@ -355,6 +355,10 @@ struct LightningDBWrap {
 
   size_t getExperiencesCount() { return db->getExperiencesCount(); }
 
+  void save(const std::string& fileName) { db->save(fileName); }
+
+  void load(const std::string& fileName) { db->load(fileName); }
+
   ob::SpaceInformationPtr si;
   ot::LightningDBPtr db;
 };

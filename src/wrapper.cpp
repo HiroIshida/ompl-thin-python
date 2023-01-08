@@ -19,7 +19,6 @@ namespace ob = ompl::base;
 namespace og = ompl::geometric;
 namespace ot = ompl::tools;
 
-
 PYBIND11_MODULE(_omplpy, m)
 {
   m.doc() = "unofficial ompl python wrapper";
@@ -36,6 +35,8 @@ PYBIND11_MODULE(_omplpy, m)
 
   py::class_<LightningDBWrap>(m, "_LightningDB")
       .def(py::init<size_t>())
+      .def("save", &LightningDBWrap::save)
+      .def("load", &LightningDBWrap::load)
       .def("add_experience", &LightningDBWrap::addExperience)
       .def("get_experienced_paths", &LightningDBWrap::getExperiencedPaths)
       .def("get_experiences_count", &LightningDBWrap::getExperiencesCount);
