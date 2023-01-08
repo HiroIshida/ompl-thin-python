@@ -4,6 +4,7 @@
 #include <ompl/base/StateSpace.h>
 #include <ompl/base/spaces/RealVectorBounds.h>
 #include <ompl/base/spaces/RealVectorStateSpace.h>
+#include <ompl/geometric/PathGeometric.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/fmt/BFMT.h>
 #include <ompl/geometric/planners/fmt/FMT.h>
@@ -25,6 +26,7 @@
 #include <ompl/geometric/planners/rrt/SORRTstar.h>
 #include <ompl/tools/experience/ExperienceSetup.h>
 #include <ompl/tools/lightning/Lightning.h>
+#include <ompl/tools/lightning/LightningDB.h>
 #include <ompl/util/PPM.h>
 
 #include <boost/filesystem.hpp>
@@ -55,6 +57,16 @@
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 namespace ot = ompl::tools;
+
+std::vector<double> state_to_vec(const ob::State* state, size_t dim)
+{
+  const auto rs = state->as<ob::RealVectorStateSpace::StateType>();
+  std::vector<double> vec(dim);
+  for (size_t i = 0; i < dim; ++i) {
+    vec[i] = rs->values[i];
+  }
+  return vec;
+};
 
 class AllPassMotionValidator : public ob::MotionValidator
 {
@@ -225,10 +237,10 @@ class PlannerBase
 
     std::function<bool()> fn = [this]() { return csi_->is_terminatable(); };
     const auto result = setup_->solve(fn);
-    if (not result){
+    if (not result) {
       return {};
     }
-    if (result == ob::PlannerStatus::APPROXIMATE_SOLUTION){
+    if (result == ob::PlannerStatus::APPROXIMATE_SOLUTION) {
       OMPL_INFORM("reporeted to be solved. But reject it because it'S approx solution");
       return {};
     }
@@ -297,8 +309,59 @@ struct OMPLPlanner : public PlannerBase<og::SimpleSetup> {
   }
 };
 
-struct LightningPlanner : public PlannerBase<ot::Lightning> {
-  LightningPlanner(const std::vector<double>& lb,
+struct LightningDBWrap {
+  LightningDBWrap(size_t n_dim)
+  {
+    auto space = ob::StateSpacePtr(new ob::RealVectorStateSpace(n_dim));
+    si = std::make_shared<ob::SpaceInformation>(space);
+    db = std::make_shared<ot::LightningDB>(space);
+  }
+
+  void addExperience(const std::vector<std::vector<double>>& points)
+  {
+    std::vector<ob::State*> states;
+
+    auto pg = og::PathGeometric(si);
+    for (const auto& point : points) {
+      ob::State* s = si->getStateSpace()->allocState();
+      auto rs = s->as<ob::RealVectorStateSpace::StateType>();
+      for (size_t i = 0; i < si->getStateDimension(); ++i) {
+        rs->values[i] = point.at(i);
+      }
+      pg.append(rs);
+    }
+    double insertion_time;
+    db->addPath(pg, insertion_time);
+  }
+
+  std::vector<std::vector<std::vector<double>>> getExperiencedPaths()
+  {
+    const auto dim = si->getStateSpace()->getDimension();
+
+    std::vector<std::vector<std::vector<double>>> paths;
+
+    std::vector<ob::PlannerDataPtr> datas;
+    db->getAllPlannerDatas(datas);
+    for (const auto& data : datas) {
+      std::vector<std::vector<double>> path;
+      for (std::size_t i = 0; i < data->numVertices(); ++i) {
+        const auto vert = data->getVertex(i);
+        path.push_back(state_to_vec(vert.getState(), dim));
+      }
+      paths.push_back(path);
+    }
+    return paths;
+  }
+
+  size_t getExperiencesCount() { return db->getExperiencesCount(); }
+
+  ob::SpaceInformationPtr si;
+  ot::LightningDBPtr db;
+};
+
+struct LightningPlanner : public PlannerBase<og::SimpleSetup> {
+  LightningPlanner(const LightningDBWrap& dbwrap,
+                   const std::vector<double>& lb,
                    const std::vector<double>& ub,
                    const std::function<bool(std::vector<double>)>& is_valid,
                    size_t max_is_valid_call,
@@ -306,116 +369,7 @@ struct LightningPlanner : public PlannerBase<ot::Lightning> {
                    const std::string& algo_name)
       : PlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
-    const auto algo = create_algorithm(algo_name);
-    setup_->setPlanner(algo);
-    setup_->setRepairPlanner(algo);
-    scratchMode();
+    auto repair_planner = std::make_shared<og::LightningRetrieveRepair>(csi_->si_, dbwrap.db);
+    setup_->setPlanner(repair_planner);
   }
-  std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
-                                                        const std::vector<double>& goal)
-  {
-    const auto ret = PlannerBase<ot::Lightning>::solve(start, goal);
-    if (recall_mode_) {
-      recall_called_ = true;
-    }
-    return ret;
-  }
-
-  void recallMode()
-  {
-    std::vector<ob::PlannerDataPtr> datas;
-    setup_->getAllPlannerDatas(datas);
-    if (datas.size() < 1) {
-      throw std::runtime_error("recall mode can be enabled only if planner have experiences");
-    }
-
-    setup_->enablePlanningFromScratch(false);
-    setup_->enablePlanningFromRecall(true);
-    recall_mode_ = true;
-  }
-
-  void scratchMode()
-  {
-    setup_->enablePlanningFromScratch(true);
-    setup_->enablePlanningFromRecall(false);
-    recall_mode_ = false;
-  }
-
-  std::optional<size_t> getLatestActivatedIndex()
-  {
-    if (!recall_called_) {
-      // without this, segmentation fault occurs
-      return {};
-    }
-    std::vector<ob::PlannerDataPtr> datas;
-    setup_->getAllPlannerDatas(datas);
-    const auto& rrplanner = setup_->getLightningRetrieveRepairPlanner();
-    const ob::PlannerDataPtr activated = rrplanner.getChosenRecallPath();
-    const auto it = std::find(datas.begin(), datas.end(), activated);
-
-    if (it != datas.end()) {
-      return it - datas.begin();
-    } else {
-      return {};
-    }
-  }
-
-  void dumpExperience(const std::string& file_name)
-  {
-    setup_->setFilePath(file_name);
-    const bool success = setup_->save();
-    if (!success) {
-      throw std::runtime_error("failed to save to " + file_name);
-    }
-    setup_->setFilePath("");  // I don't want to have filepath as internal state
-  }
-
-  void loadExperience(const std::string& file_name)
-  {
-    const size_t exp_count = setup_->getExperiencesCount();
-    if (exp_count > 0) {
-      const std::string message =
-          "cannot load because you have " + std::to_string(exp_count) + " experiences";
-      throw std::runtime_error(message);
-    }
-    setup_->setFilePath(file_name);
-    setup_->setup();          // load database
-    setup_->setFilePath("");  // I don't want to have filepath as internal state
-  }
-
-  std::vector<std::vector<std::vector<double>>> getExperiencedPaths()
-  {
-    const auto dim = setup_->getStateSpace()->getDimension();
-
-    const auto state_to_vec = [dim](const ob::State* state) {
-      const auto rs = state->as<ob::RealVectorStateSpace::StateType>();
-      std::vector<double> vec(dim);
-      for (size_t i = 0; i < dim; ++i) {
-        vec[i] = rs->values[i];
-      }
-      return vec;
-    };
-
-    std::vector<std::vector<std::vector<double>>> paths;
-
-    std::vector<ob::PlannerDataPtr> datas;
-    setup_->getAllPlannerDatas(datas);
-    for (const auto& data : datas) {
-      std::vector<std::vector<double>> path;
-      for (std::size_t i = 0; i < data->numVertices(); ++i) {
-        const auto vert = data->getVertex(i);
-        path.push_back(state_to_vec(vert.getState()));
-      }
-      paths.push_back(path);
-    }
-    return paths;
-  }
-
-  size_t getExperiencesCount() { return setup_->getExperiencesCount(); }
-
-  /** \brief indicate that currently the planner is in recall mode */
-  bool recall_mode_{false};
-
-  /** \brief indicate solve called with recall mode. this indicates caches are save in recalling */
-  bool recall_called_{false};
 };
