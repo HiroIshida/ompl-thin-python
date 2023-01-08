@@ -5,14 +5,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-from ompl import LightningPlanner, Algorithm
+from ompl import LightningPlanner, Algorithm, Planner, LightningDB
 
 
 
 def is_valid(x):
-    if np.linalg.norm(np.array(x) - np.array([0.25, 0.5])) < 0.25:
-        return False
-    if np.linalg.norm(np.array(x) - np.array([1.0, 0.0])) < 0.4:
+    time.sleep(0.0001)
+    if np.linalg.norm(np.array(x) - np.array([0.5, 0.5])) < 0.45:
         return False
     return True
 
@@ -39,33 +38,28 @@ if __name__ == "__main__":
     args = parser.parse_args()
     visualize: bool = args.visualize
 
-    # store experience
-    lightning = LightningPlanner([0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTstar)
-    lightning.scratch()
-    for _ in range(200):
-        lightning.solve(sample_valid(), sample_valid())
-    lightning.dump("tmp.db")
+    planner = Planner([0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTstar)
 
-    # use experience to solve faster
-    lightning_loaded = LightningPlanner([0, 0], [1, 1], is_valid, 100000, [0.01, 0.01])
-    lightning_loaded.load("tmp.db")
-    lightning_loaded.recall()
-    start = np.array([0.1, 0.1])
-    goal = np.array([0.9, 0.9])
-    lightning_loaded.solve(start, goal)
+    db = LightningDB(2)
+    for _ in range(30):
+        trajectory = planner.solve(sample_valid(), sample_valid())
+        db.add_experience(np.array(trajectory))
+        print("db count: {}".format(db.get_experiences_count()))
+    lightning = LightningPlanner(db, [0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTstar)
+
+    ts = time.time()
+    lightning_path = lightning.solve([0.01, 0.01], [0.99, 0.99])
+    print("lightning elapsed: {}".format(time.time() - ts))
 
     # visualization
     if visualize:
-        paths = lightning_loaded.get_experienced_paths()
+        paths = db.get_experienced_paths()
         fig, ax = plt.subplots()
         for path in paths:
             plot_trajectory(ax, path, "red")
-        idx = lightning_loaded.get_latest_activated_index()
-        plot_trajectory(ax, paths[idx], "blue")
+        plot_trajectory(ax, np.array(lightning_path), "blue")
 
-        circle = plt.Circle((0.25, 0.5), 0.25, color='k', fill=False)
+        circle = plt.Circle((0.5, 0.5), 0.45, color='k', fill=False)
         ax.add_patch(circle)
 
-        circle = plt.Circle((1.0, 0.0), 0.4, color='k', fill=False)
-        ax.add_patch(circle)
         plt.show()

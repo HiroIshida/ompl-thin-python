@@ -47,5 +47,7 @@ PYBIND11_MODULE(_omplpy, m)
                     std::function<bool(std::vector<double>)>,
                     size_t,
                     std::vector<double>,
-                    std::string>());
+                    std::string>())
+      .def("reset_is_valid", &LightningPlanner::resetIsValid)
+      .def("solve", &LightningPlanner::solve);
 }

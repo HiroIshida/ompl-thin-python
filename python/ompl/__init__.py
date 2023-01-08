@@ -44,7 +44,7 @@ def set_ompl_random_seed(seed: int) -> None:
 class _OMPLPlannerBase(ABC):
     """
     An additional higher layer wrapper.
-    One important reason of this class is exposing type hinting
+    The primal reason of this class is exposing type hinting
     """
     _planner: Any
     _is_valid: IsValidFunc
@@ -92,41 +92,74 @@ class _OMPLPlannerBase(ABC):
 
 
 class Planner(_OMPLPlannerBase):
-    """
-    An additional higher layer wrapper.
-    One important reason of this class is exposing type hinting
-    """
+
+    def __init__(self,
+            lb: VectorLike,
+            ub: VectorLike,
+            is_valid: IsValidFunc,
+            n_max_is_valid: int,
+            validation_box: Union[np.ndarray, float],
+            algo: Algorithm = Algorithm.RRTConnect):
+
+        lb = np.array(lb)
+        ub = np.array(ub)
+        assert lb.ndim == 1
+        assert ub.ndim == 1
+        assert len(lb) == len(ub)
+        planner_t = self.planner_type()
+        if isinstance(validation_box, float):
+            dim = len(lb)
+            validation_box = np.array([validation_box] * dim)
+        self._planner = planner_t(lb, ub, is_valid, n_max_is_valid, validation_box, algo.value)
+        self.reset_is_valid(is_valid)
+
     def planner_type(self) -> Any:
         return _omplpy._OMPLPlanner
 
 
+class LightningDB(_omplpy._LightningDB):
+    dim: int
+
+    def __init__(self, dim: int):
+        self.dim = dim
+        super().__init__(dim)
+
+    def add_experience(self, experience: List[np.ndarray]) -> None:
+        assert experience.ndim == 2
+        assert experience.shape[1] == self.dim
+        super().add_experience(experience.tolist())
+
+    def get_experienced_paths(self) -> List[np.ndarray]:
+        paths = super().get_experienced_paths()
+        return [np.array(p) for p in paths]
+
+    def get_experiences_count(self) -> int:
+        return super().get_experiences_count()
+
+
 class LightningPlanner(_OMPLPlannerBase):
+
+    def __init__(self,
+            db: LightningDB,
+            lb: VectorLike,
+            ub: VectorLike,
+            is_valid: IsValidFunc,
+            n_max_is_valid: int,
+            validation_box: Union[np.ndarray, float],
+            algo: Algorithm = Algorithm.RRTConnect):
+
+        lb = np.array(lb)
+        ub = np.array(ub)
+        assert lb.ndim == 1
+        assert ub.ndim == 1
+        assert len(lb) == len(ub)
+        planner_t = self.planner_type()
+        if isinstance(validation_box, float):
+            dim = len(lb)
+            validation_box = np.array([validation_box] * dim)
+        self._planner = planner_t(db, lb, ub, is_valid, n_max_is_valid, validation_box, algo.value)
+        self.reset_is_valid(is_valid)
+
 
     def planner_type(self) -> Any:
         return _omplpy._LightningPlanner
-
-    def scratch(self) -> None:
-        self._planner.scratch()
-
-    def recall(self) -> None:
-        self._planner.recall()
-
-    def dump(self, path: PathLike) -> None:
-        if isinstance(path, Path):
-            path = str(path.expanduser())
-        self._planner.dump(path)
-
-    def load(self, path: PathLike) -> None:
-        if isinstance(path, Path):
-            path = str(path.expanduser())
-        self._planner.load(path)
-
-    def get_experienced_paths(self) -> List[np.ndarray]:
-        paths = self._planner.get_experienced_paths()
-        return paths
-
-    def get_latest_activated_index(self) -> int:
-        return self._planner.get_latest_activated_index()
-
-    def get_experiences_count(self) -> int:
-        return self._planner.get_experiences_count()
