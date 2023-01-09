@@ -134,6 +134,17 @@ class LightningDB(_omplpy._LightningDB):
     def get_experiences_count(self) -> int:
         return super().get_experiences_count()
 
+    def save(self, path: Union[Path, str]) -> None:
+        if isinstance(path, Path):
+            path = str(path.expanduser())
+        self._planner.dump(path)
+
+    @classmethod
+    def load(self, path: Union[Path, str]) -> None:
+        if isinstance(path, Path):
+            path = str(path.expanduser())
+        self._planner.load(path)
+
 
 class LightningPlanner(_OMPLPlannerBase):
 
@@ -157,17 +168,6 @@ class LightningPlanner(_OMPLPlannerBase):
             validation_box = np.array([validation_box] * dim)
         self._planner = planner_t(db, lb, ub, is_valid, n_max_is_valid, validation_box, algo.value)
         self.reset_is_valid(is_valid)
-
-    def save(self, path: Union[Path, str]) -> None:
-        if isinstance(path, Path):
-            path = str(path.expanduser())
-        self._planner.dump(path)
-
-    @classmethod
-    def load(self, path: Union[Path, str]) -> None:
-        if isinstance(path, Path):
-            path = str(path.expanduser())
-        self._planner.load(path)
 
     def planner_type(self) -> Any:
         return _omplpy._LightningPlanner
