@@ -216,8 +216,6 @@ struct CollisionAwareSpaceInformation {
   const size_t max_is_valid_call_;
 };
 
-template <typename SetupT,
-          typename std::enable_if<std::is_base_of<og::SimpleSetup, SetupT>::value, int>::type = 0>
 class PlannerBase
 {
  public:
@@ -230,7 +228,7 @@ class PlannerBase
   {
     csi_ = std::make_unique<CollisionAwareSpaceInformation>(
         lb, ub, is_valid, max_is_valid_call, box_width);
-    setup_ = std::make_unique<SetupT>(csi_->si_);
+    setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
     setup_->setStateValidityChecker([this](const ob::State* s) { return this->csi_->is_valid(s); });
   }
 
@@ -259,11 +257,11 @@ class PlannerBase
       OMPL_INFORM("reporeted to be solved. But reject it because it'S approx solution");
       return {};
     }
-    const auto p = setup_->getSolutionPath().template as<og::PathGeometric>();
+    const auto p = setup_->getSolutionPath().as<og::PathGeometric>();
     const auto& states = p->getStates();
     auto trajectory = std::vector<std::vector<double>>(states.size(), std::vector<double>(dim));
     for (size_t i = 0; i < states.size(); ++i) {
-      const auto& rs = states[i]->template as<ob::RealVectorStateSpace::StateType>();
+      const auto& rs = states[i]->as<ob::RealVectorStateSpace::StateType>();
       for (size_t j = 0; j < dim; ++j) {
         trajectory[i][j] = rs->values[j];
       }
@@ -307,10 +305,10 @@ class PlannerBase
   }
 
   std::unique_ptr<CollisionAwareSpaceInformation> csi_;
-  std::unique_ptr<SetupT> setup_;
+  std::unique_ptr<og::SimpleSetup> setup_;
 };
 
-struct OMPLPlanner : public PlannerBase<og::SimpleSetup> {
+struct OMPLPlanner : public PlannerBase {
   OMPLPlanner(const std::vector<double>& lb,
               const std::vector<double>& ub,
               const std::function<bool(std::vector<double>)>& is_valid,
@@ -368,7 +366,7 @@ struct LightningDBWrap {
   ot::LightningDBPtr db;
 };
 
-struct LightningPlanner : public PlannerBase<og::SimpleSetup> {
+struct LightningPlanner : public PlannerBase {
   LightningPlanner(const LightningDBWrap& dbwrap,
                    const std::vector<double>& lb,
                    const std::vector<double>& ub,
