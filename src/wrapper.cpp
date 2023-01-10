@@ -51,4 +51,12 @@ PYBIND11_MODULE(_omplpy, m)
                     std::string>())
       .def("reset_is_valid", &LightningPlanner::resetIsValid)
       .def("solve", &LightningPlanner::solve);
+
+  py::class_<PathSimplifierWrapper>(m, "_PathSimplifier")
+      .def(py::init<std::vector<double>,
+                    std::vector<double>,
+                    std::function<bool(std::vector<double>)>,
+                    size_t,
+                    std::vector<double>>())
+      .def("simplify", &PathSimplifierWrapper::simplify);
 }

@@ -68,6 +68,21 @@ std::vector<double> state_to_vec(const ob::State* state, size_t dim)
   return vec;
 };
 
+og::PathGeometric points_to_pathgeometric(const std::vector<std::vector<double>>& points,
+                                          ob::SpaceInformationPtr si)
+{
+  auto pg = og::PathGeometric(si);
+  for (const auto& point : points) {
+    ob::State* s = si->getStateSpace()->allocState();
+    auto rs = s->as<ob::RealVectorStateSpace::StateType>();
+    for (size_t i = 0; i < si->getStateDimension(); ++i) {
+      rs->values[i] = point.at(i);
+    }
+    pg.append(rs);
+  }
+  return pg;
+}
+
 class AllPassMotionValidator : public ob::MotionValidator
 {
  public:
@@ -319,17 +334,7 @@ struct LightningDBWrap {
 
   void addExperience(const std::vector<std::vector<double>>& points)
   {
-    std::vector<ob::State*> states;
-
-    auto pg = og::PathGeometric(si);
-    for (const auto& point : points) {
-      ob::State* s = si->getStateSpace()->allocState();
-      auto rs = s->as<ob::RealVectorStateSpace::StateType>();
-      for (size_t i = 0; i < si->getStateDimension(); ++i) {
-        rs->values[i] = point.at(i);
-      }
-      pg.append(rs);
-    }
+    auto pg = points_to_pathgeometric(points, si);
     double insertion_time;
     db->addPath(pg, insertion_time);
   }
@@ -376,4 +381,40 @@ struct LightningPlanner : public PlannerBase<og::SimpleSetup> {
     auto repair_planner = std::make_shared<og::LightningRetrieveRepair>(csi_->si_, dbwrap.db);
     setup_->setPlanner(repair_planner);
   }
+};
+
+struct PathSimplifierWrapper {
+  PathSimplifierWrapper(const std::vector<double>& lb,
+                        const std::vector<double>& ub,
+                        const std::function<bool(std::vector<double>)>& is_valid,
+                        size_t max_is_valid_call,
+                        const std::vector<double>& box_width)
+  {
+    csi_ = std::make_unique<CollisionAwareSpaceInformation>(
+        lb, ub, is_valid, max_is_valid_call, box_width);
+    psk_ = std::make_shared<og::PathSimplifier>(csi_->si_);
+    csi_->si_->setStateValidityChecker(
+        [this](const ob::State* s) { return this->csi_->is_valid(s); });
+  }
+
+  std::vector<std::vector<double>> simplify(const std::vector<std::vector<double>>& points)
+  {
+    csi_->resetCount();
+    auto pg = points_to_pathgeometric(points, csi_->si_);
+    std::function<bool()> fn = [this]() { return csi_->is_terminatable(); };
+    psk_->simplify(pg, fn);
+    std::vector<std::vector<double>> points_out;
+    for (const auto s : pg.getStates()) {
+      const auto rs = s->as<ob::RealVectorStateSpace::StateType>();
+      std::vector<double> point(csi_->si_->getStateDimension());
+      for (size_t i = 0; i < point.size(); ++i) {
+        point[i] = rs->values[i];
+      }
+      points_out.push_back(point);
+    }
+    return points_out;
+  }
+
+  std::unique_ptr<CollisionAwareSpaceInformation> csi_;
+  og::PathSimplifierPtr psk_;
 };

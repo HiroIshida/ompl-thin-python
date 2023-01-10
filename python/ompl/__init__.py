@@ -170,3 +170,26 @@ class LightningPlanner(_OMPLPlannerBase):
 
     def planner_type(self) -> Any:
         return _omplpy._LightningPlanner
+
+
+class PathSimplifier(_omplpy._PathSimplifier):
+
+    def __init__(self,
+            lb: VectorLike,
+            ub: VectorLike,
+            is_valid: IsValidFunc,
+            n_max_is_valid: int,
+            validation_box: Union[np.ndarray, float]):
+
+        lb = np.array(lb)
+        ub = np.array(ub)
+        assert lb.ndim == 1
+        assert ub.ndim == 1
+        assert len(lb) == len(ub)
+        if isinstance(validation_box, float):
+            dim = len(lb)
+            validation_box = np.array([validation_box] * dim)
+        super().__init__(lb, ub, is_valid, n_max_is_valid, validation_box)
+
+    def simplify(self, ps: List[np.ndarray]) -> List[np.ndarray]:
+        return super().simplify(ps)
