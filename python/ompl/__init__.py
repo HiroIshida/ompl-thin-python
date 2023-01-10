@@ -137,13 +137,12 @@ class LightningDB(_omplpy._LightningDB):
     def save(self, path: Union[Path, str]) -> None:
         if isinstance(path, Path):
             path = str(path.expanduser())
-        self._planner.dump(path)
+        super().save(path)
 
-    @classmethod
     def load(self, path: Union[Path, str]) -> None:
         if isinstance(path, Path):
             path = str(path.expanduser())
-        self._planner.load(path)
+        super().load(path)
 
 
 class LightningPlanner(_OMPLPlannerBase):
