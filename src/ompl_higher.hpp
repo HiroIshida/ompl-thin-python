@@ -28,6 +28,7 @@
 #include <ompl/tools/lightning/Lightning.h>
 #include <ompl/tools/lightning/LightningDB.h>
 #include <ompl/util/PPM.h>
+#include <ompl/util/Time.h>
 
 #include <boost/filesystem.hpp>
 #include <functional>
@@ -389,6 +390,7 @@ struct PathSimplifierWrapper {
 
   std::vector<std::vector<double>> simplify(const std::vector<std::vector<double>>& points)
   {
+    ompl::time::point simplifyStart = ompl::time::now();
     csi_->resetCount();
     const size_t dim = csi_->si_->getStateDimension();
     auto pg = points_to_pathgeometric(points, csi_->si_);
@@ -398,6 +400,8 @@ struct PathSimplifierWrapper {
     for (const auto state : pg.getStates()) {
       points_out.push_back(state_to_vec(state, dim));
     }
+    double simplifyTime = ompl::time::seconds(ompl::time::now() - simplifyStart);
+    OMPL_INFORM("ompl_thin: Path simplification took %f seconds", simplifyTime);
     return points_out;
   }
 
