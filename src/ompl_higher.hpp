@@ -200,13 +200,8 @@ struct CollisionAwareSpaceInformation {
   bool is_valid(const ob::State* state)
   {
     const size_t dim = si_->getStateDimension();
-    auto vec = std::vector<double>(dim);
-    const auto& rs = state->as<ob::RealVectorStateSpace::StateType>();
-    for (size_t i = 0; i < vec.size(); ++i) {
-      vec[i] = rs->values[i];
-    }
+    const auto vec = state_to_vec(state, dim);
     this->is_valid_call_count_++;
-
     return is_valid_(vec);
   }
 
@@ -259,12 +254,9 @@ class PlannerBase
     }
     const auto p = setup_->getSolutionPath().as<og::PathGeometric>();
     const auto& states = p->getStates();
-    auto trajectory = std::vector<std::vector<double>>(states.size(), std::vector<double>(dim));
-    for (size_t i = 0; i < states.size(); ++i) {
-      const auto& rs = states[i]->as<ob::RealVectorStateSpace::StateType>();
-      for (size_t j = 0; j < dim; ++j) {
-        trajectory[i][j] = rs->values[j];
-      }
+    auto trajectory = std::vector<std::vector<double>>();
+    for (const auto& state : states) {
+      trajectory.push_back(state_to_vec(state, dim));
     }
     return trajectory;
   }
@@ -398,17 +390,13 @@ struct PathSimplifierWrapper {
   std::vector<std::vector<double>> simplify(const std::vector<std::vector<double>>& points)
   {
     csi_->resetCount();
+    const size_t dim = csi_->si_->getStateDimension();
     auto pg = points_to_pathgeometric(points, csi_->si_);
     std::function<bool()> fn = [this]() { return csi_->is_terminatable(); };
     psk_->simplify(pg, fn);
     std::vector<std::vector<double>> points_out;
-    for (const auto s : pg.getStates()) {
-      const auto rs = s->as<ob::RealVectorStateSpace::StateType>();
-      std::vector<double> point(csi_->si_->getStateDimension());
-      for (size_t i = 0; i < point.size(); ++i) {
-        point[i] = rs->values[i];
-      }
-      points_out.push_back(point);
+    for (const auto state : pg.getStates()) {
+      points_out.push_back(state_to_vec(state, dim));
     }
     return points_out;
   }
