@@ -192,4 +192,5 @@ class PathSimplifier(_omplpy._PathSimplifier):
         super().__init__(lb, ub, is_valid, n_max_is_valid, validation_box)
 
     def simplify(self, ps: List[np.ndarray]) -> List[np.ndarray]:
-        return super().simplify(ps)
+        lst_lst = super().simplify(ps)
+        return [np.array(lst) for lst in lst_lst]

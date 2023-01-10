@@ -5,12 +5,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
 
-from ompl import LightningPlanner, Algorithm, Planner, LightningDB
+from ompl import LightningPlanner, Algorithm, Planner, LightningDB, set_ompl_random_seed, PathSimplifier
 
+set_ompl_random_seed(0)
+np.random.seed(5)
 
 
 def is_valid(x):
-    time.sleep(0.0001)
     if np.linalg.norm(np.array(x) - np.array([0.5, 0.5])) < 0.45:
         return False
     return True
@@ -38,7 +39,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     visualize: bool = args.visualize
 
-    planner = Planner([0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTstar)
+    planner = Planner([0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTConnect)
 
     db = LightningDB(2)
     for _ in range(30):
@@ -48,11 +49,18 @@ if __name__ == "__main__":
     db.save("tmp.db")
     db_again = LightningDB(2)
     db_again.load("tmp.db")
-    lightning = LightningPlanner(db_again, [0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTstar)
+    lightning = LightningPlanner(db_again, [0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTConnect)
 
     ts = time.time()
     lightning_path = lightning.solve([0.01, 0.01], [0.99, 0.99])
     print("lightning elapsed: {}".format(time.time() - ts))
+
+    assert np.linalg.norm(lightning_path[0] - lightning_path[1]) > 1e-5
+    assert np.linalg.norm(lightning_path[-1] - lightning_path[-2]) > 1e-5
+
+    print("start simplify")
+    simplifier = PathSimplifier([0, 0], [1, 1], is_valid, 1000, [0.04, 0.04])
+    simplified_path = simplifier.simplify(lightning_path)
 
     # visualization
     if visualize:
@@ -61,6 +69,7 @@ if __name__ == "__main__":
         for path in paths:
             plot_trajectory(ax, path, "red")
         plot_trajectory(ax, np.array(lightning_path), "blue")
+        plot_trajectory(ax, np.array(simplified_path), "green")
 
         circle = plt.Circle((0.5, 0.5), 0.45, color='k', fill=False)
         ax.add_patch(circle)
