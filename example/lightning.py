@@ -58,9 +58,7 @@ if __name__ == "__main__":
     assert np.linalg.norm(lightning_path[0] - lightning_path[1]) > 1e-5
     assert np.linalg.norm(lightning_path[-1] - lightning_path[-2]) > 1e-5
 
-    print("start simplify")
-    simplifier = PathSimplifier([0, 0], [1, 1], is_valid, 1000, [0.04, 0.04])
-    simplified_path = simplifier.simplify(lightning_path)
+    simplified_path = lightning.solve([0.01, 0.01], [0.99, 0.99], simplify=True)
 
     # visualization
     if visualize:

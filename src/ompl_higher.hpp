@@ -229,7 +229,8 @@ class PlannerBase
   }
 
   std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
-                                                        const std::vector<double>& goal)
+                                                        const std::vector<double>& goal,
+                                                        bool simplify)
   {
     setup_->clear();
     csi_->resetCount();
@@ -252,6 +253,9 @@ class PlannerBase
     if (result == ob::PlannerStatus::APPROXIMATE_SOLUTION) {
       OMPL_INFORM("reporeted to be solved. But reject it because it'S approx solution");
       return {};
+    }
+    if (simplify) {
+      setup_->simplifySolution(fn);
     }
     const auto p = setup_->getSolutionPath().as<og::PathGeometric>();
     const auto& states = p->getStates();

@@ -68,13 +68,13 @@ class _OMPLPlannerBase(ABC):
         self._planner = planner_t(lb, ub, is_valid, n_max_is_valid, validation_box, algo.value)
         self.reset_is_valid(is_valid)
 
-    def solve(self, start: VectorLike, goal: VectorLike) -> Optional[List[np.ndarray]]:
+    def solve(self, start: VectorLike, goal: VectorLike, simplify: bool=False) -> Optional[List[np.ndarray]]:
         start = np.array(start)
         goal = np.array(goal)
 
         assert self._is_valid(start.tolist())
         assert self._is_valid(goal.tolist())
-        ret = self._planner.solve(start, goal)
+        ret = self._planner.solve(start, goal, simplify)
         if ret is None:
             return ret
         for i in range(len(ret)):
