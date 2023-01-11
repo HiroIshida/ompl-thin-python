@@ -29,6 +29,9 @@
 #include <ompl/tools/lightning/LightningDB.h>
 #include <ompl/util/PPM.h>
 #include <ompl/util/Time.h>
+#include <pybind11/functional.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include <boost/filesystem.hpp>
 #include <functional>
@@ -54,6 +57,8 @@
     const auto algo = std::make_shared<og::ALGO>(space_info); \
     return std::static_pointer_cast<ob::Planner>(algo);       \
   }
+
+namespace py = pybind11;
 
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
@@ -412,3 +417,47 @@ struct PathSimplifierWrapper {
   std::unique_ptr<CollisionAwareSpaceInformation> csi_;
   og::PathSimplifierPtr psk_;
 };
+
+void setGlobalSeed(size_t seed) { ompl::RNG::setSeed(seed); }
+
+PYBIND11_MODULE(_omplpy, m)
+{
+  m.doc() = "unofficial ompl python wrapper";
+  m.def("set_random_seed", &setGlobalSeed);
+  py::class_<OMPLPlanner>(m, "_OMPLPlanner")
+      .def(py::init<std::vector<double>,
+                    std::vector<double>,
+                    std::function<bool(std::vector<double>)>,
+                    size_t,
+                    std::vector<double>,
+                    std::string>())
+      .def("reset_is_valid", &OMPLPlanner::resetIsValid)
+      .def("solve", &OMPLPlanner::solve);
+
+  py::class_<LightningDBWrap>(m, "_LightningDB")
+      .def(py::init<size_t>())
+      .def("save", &LightningDBWrap::save)
+      .def("load", &LightningDBWrap::load)
+      .def("add_experience", &LightningDBWrap::addExperience)
+      .def("get_experienced_paths", &LightningDBWrap::getExperiencedPaths)
+      .def("get_experiences_count", &LightningDBWrap::getExperiencesCount);
+
+  py::class_<LightningPlanner>(m, "_LightningPlanner")
+      .def(py::init<LightningDBWrap,
+                    std::vector<double>,
+                    std::vector<double>,
+                    std::function<bool(std::vector<double>)>,
+                    size_t,
+                    std::vector<double>,
+                    std::string>())
+      .def("reset_is_valid", &LightningPlanner::resetIsValid)
+      .def("solve", &LightningPlanner::solve);
+
+  py::class_<PathSimplifierWrapper>(m, "_PathSimplifier")
+      .def(py::init<std::vector<double>,
+                    std::vector<double>,
+                    std::function<bool(std::vector<double>)>,
+                    size_t,
+                    std::vector<double>>())
+      .def("simplify", &PathSimplifierWrapper::simplify);
+}
