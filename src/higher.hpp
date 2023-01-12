@@ -173,10 +173,10 @@ class BoxMotionValidator : public ob::MotionValidator
   std::vector<double> width_;
 };
 
-std::optional<std::vector<ob::State*>> split_geodesic_with_box(const ob::State* s1,
-                                                               const ob::State* s2,
-                                                               const ob::SpaceInformation* si,
-                                                               const std::vector<double>& width)
+std::optional<std::vector<double>> split_geodesic_with_box(const ob::State* s1,
+                                                           const ob::State* s2,
+                                                           const ob::SpaceInformation* si,
+                                                           const std::vector<double>& width)
 {
   // returns list of states if all states are valid, otherwise return std::nulopt
 
@@ -257,12 +257,9 @@ std::optional<std::vector<ob::State*>> split_geodesic_with_box(const ob::State* 
     }
   }
 
-  // convert (ordered) fraction set to state sequence
-  std::vector<ob::State*> states(fraction_set.size());
-  for (auto it = fraction_set.begin(); it != fraction_set.end(); ++it) {
-    states.push_back(fraction_to_state_table.find(*it)->second);
-  }
-  return states;
+  std::vector<double> fractions(fraction_set.size());
+  std::copy(fraction_set.begin(), fraction_set.end(), fractions.begin());
+  return fractions;
 }
 
 class GeodesicBoxMotionValidator : public ob::MotionValidator
@@ -321,6 +318,7 @@ struct CollisionAwareSpaceInformation {
   std::function<bool(std::vector<double>)> is_valid_;
   size_t is_valid_call_count_;
   const size_t max_is_valid_call_;
+  std::vector<double> box_width_;
 };
 
 struct UnconstrianedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInformation<false> {
@@ -330,7 +328,7 @@ struct UnconstrianedCollisoinAwareSpaceInformation : public CollisionAwareSpaceI
       const std::function<bool(std::vector<double>)>& is_valid,
       size_t max_is_valid_call,
       const std::vector<double>& box_width)
-      : CollisionAwareSpaceInformation<false>{nullptr, is_valid, 0, max_is_valid_call}
+      : CollisionAwareSpaceInformation<false>{nullptr, is_valid, 0, max_is_valid_call, box_width}
   {
     const auto space = bound2space(lb, ub);
     si_ = std::make_shared<ob::SpaceInformation>(space);
@@ -350,7 +348,7 @@ struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInf
       const std::function<bool(std::vector<double>)>& is_valid,
       size_t max_is_valid_call,
       const std::vector<double>& box_width)
-      : CollisionAwareSpaceInformation<true>{nullptr, is_valid, 0, max_is_valid_call}
+      : CollisionAwareSpaceInformation<true>{nullptr, is_valid, 0, max_is_valid_call, box_width}
   {
     const auto space = bound2space(lb, ub);
     const auto css = std::make_shared<ob::ProjectedStateSpace>(space, constraint);
@@ -392,14 +390,38 @@ struct PlannerBase {
       return {};
     }
     if (simplify) {
+      if constexpr(Constrained){
+          std::runtime_error("simplify does not seem to work well in constrinaed case"); 
+      }
       setup_->simplifySolution(fn);
     }
     const auto p = setup_->getSolutionPath().as<og::PathGeometric>();
-    const auto& states = p->getStates();
-    auto trajectory = std::vector<std::vector<double>>();
+    auto& states = p->getStates();
     const size_t dim = start.size();
-    for (const auto& state : states) {
-      trajectory.push_back(state_to_vec<Constrained>(state, dim));
+
+    // states
+    auto trajectory = std::vector<std::vector<double>>();
+
+    if constexpr (Constrained) {
+      trajectory.push_back(state_to_vec<Constrained>(states[0], dim));
+
+      for (size_t i = 0; i < states.size() - 1; ++i) {
+        const ob::SpaceInformation* si = csi_->si_.get();
+        const auto fractions =
+            split_geodesic_with_box(states.at(i), states.at(i + 1), si, csi_->box_width_);
+
+        const auto space = csi_->si_->getStateSpace();
+        for (size_t j = 0; j < fractions->size(); ++j) {
+          const auto s_new = si->allocState();
+          space->interpolate(states.at(i), states.at(i + 1), fractions->at(j), s_new);
+          trajectory.push_back(state_to_vec<Constrained>(s_new, dim));
+        }
+      }
+    } else {
+      auto trajectory = std::vector<std::vector<double>>();
+      for (const auto& state : states) {
+        trajectory.push_back(state_to_vec<Constrained>(state, dim));
+      }
     }
     return trajectory;
   }
