@@ -247,16 +247,18 @@ struct PlannerBase {
   {
     setup_->clear();
     csi_->resetCount();
-    const auto space = setup_->getStateSpace();
-    ob::ScopedState<ob::RealVectorStateSpace> start_state(space), goal_state(space);
 
-    const size_t dim = start.size();
+    // args shold be eigen maybe?
+    Eigen::VectorXd vec_start = Eigen::Map<const Eigen::VectorXd>(&start[0], start.size());
+    Eigen::VectorXd vec_goal = Eigen::Map<const Eigen::VectorXd>(&goal[0], goal.size());
 
-    for (size_t i = 0; i < dim; ++i) {
-      start_state->values[i] = start[i];
-      goal_state->values[i] = goal[i];
-    }
-    setup_->setStartAndGoalStates(start_state, goal_state);
+    ob::ScopedState<> sstart(csi_->si_->getStateSpace());
+    ob::ScopedState<> sgoal(csi_->si_->getStateSpace());
+
+    sstart->as<ob::ConstrainedStateSpace::StateType>()->copy(vec_start);
+    sgoal->as<ob::ConstrainedStateSpace::StateType>()->copy(vec_goal);
+
+    setup_->setStartAndGoalStates(sstart, sgoal);
 
     std::function<bool()> fn = [this]() { return csi_->is_terminatable(); };
     const auto result = setup_->solve(fn);
@@ -273,6 +275,7 @@ struct PlannerBase {
     const auto p = setup_->getSolutionPath().as<og::PathGeometric>();
     const auto& states = p->getStates();
     auto trajectory = std::vector<std::vector<double>>();
+    const size_t dim = start.size();
     for (const auto& state : states) {
       trajectory.push_back(state_to_vec<Constrained>(state, dim));
     }
@@ -314,20 +317,23 @@ struct PlannerBase {
     throw std::runtime_error("algorithm " + name + " is not supported");
   }
 
-  std::unique_ptr<UnconstrianedCollisoinAwareSpaceInformation> csi_;
+  typedef typename std::conditional<Constrained,
+                                    ConstrainedCollisoinAwareSpaceInformation,
+                                    UnconstrianedCollisoinAwareSpaceInformation>::type CsiType;
+  std::unique_ptr<CsiType> csi_;
   std::unique_ptr<og::SimpleSetup> setup_;
 };
 
-struct ConstrainedPlannerBase : public PlannerBase<true> {
-  ConstrainedPlannerBase(const std::shared_ptr<ob::Constraint> constraint,
-                         const std::vector<double>& lb,
-                         const std::vector<double>& ub,
-                         const std::function<bool(std::vector<double>)>& is_valid,
-                         size_t max_is_valid_call,
-                         const std::vector<double>& box_width)
+struct ConstrainedPlanner : public PlannerBase<true> {
+  ConstrainedPlanner(const std::shared_ptr<ob::Constraint> constraint,
+                     const std::vector<double>& lb,
+                     const std::vector<double>& ub,
+                     const std::function<bool(std::vector<double>)>& is_valid,
+                     size_t max_is_valid_call,
+                     const std::vector<double>& box_width)
       : PlannerBase<true>{nullptr, nullptr}
   {
-    const auto csi = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(
+    csi_ = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(
         constraint, lb, ub, is_valid, max_is_valid_call, box_width);
 
     setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);

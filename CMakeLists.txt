@@ -12,11 +12,15 @@ find_package(Boost REQUIRED COMPONENTS serialization)
 
 find_package(Eigen3 REQUIRED)
 ADD_DEFINITIONS(-DEIGEN_NO_DEBUG)
-include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(${EIGEN3_INCLUDE_DIR} src)
 
 add_subdirectory(pybind11)
 option(OMPL_REGISTRATION OFF)  # avoid popup in browser
 add_subdirectory(ompl)
+
+add_executable(demo_constrained example/constrained.cpp)
+include_directories(src ompl/src ${CMAKE_CURRENT_BINARY_DIR}/ompl/src)
+target_link_libraries(demo_constrained PRIVATE ompl ${Boost_LIBRARIES})
 
 include_directories(ompl/src ${CMAKE_CURRENT_BINARY_DIR}/ompl/src)
 pybind11_add_module(_omplpy src/wrapper.cpp)
