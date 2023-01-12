@@ -21,7 +21,7 @@ int main(){
 
   std::shared_ptr<ob::Constraint> cst = std::make_shared<SphereConstraint>();
   const auto all_pass = [](std::vector<double> vec){return true;};
-  const auto box = std::vector<double>{0.01, 0.01, 0.01};
+  const auto box = std::vector<double>{0.1, 0.1, 0.1};
 
   auto planner = ConstrainedPlanner(cst, std::vector{-2., -2., -2.}, std::vector{2., 2., 2.}, all_pass, 100000, box);
   planner.solve(std::vector{-1., 0., 0.}, std::vector{1., 0., 0.}, false);
