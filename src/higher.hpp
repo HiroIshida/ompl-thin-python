@@ -173,6 +173,98 @@ class BoxMotionValidator : public ob::MotionValidator
   std::vector<double> width_;
 };
 
+std::optional<std::vector<ob::State*>> split_geodesic_with_box(const ob::State* s1,
+                                                               const ob::State* s2,
+                                                               const ob::SpaceInformation* si,
+                                                               const std::vector<double>& width)
+{
+  // returns list of states if all states are valid, otherwise return std::nulopt
+
+  // this function involves a lot of dynamic allocation (e.g. stack, hashmap, vector, state)
+  // but compard to collision detection cost, it should be negligible.
+  // TODO: do performance profiling later
+  // unlike non-constrianed case, the constrained case traverse on manifold
+  const auto space = si->getStateSpace();
+  const size_t dim = space->getDimension();
+
+  const auto is_state_pair_inside_box = [&](const ob::State* s1, const ob::State* s2) -> bool {
+    const auto vec_left = state_to_vec<true>(s1, dim);
+    const auto vec_right = state_to_vec<true>(s2, dim);
+
+    for (size_t i = 0; i < dim; ++i) {
+      const double&& abs_diff_i = std::abs(vec_left[i] - vec_right[i]);
+      if (abs_diff_i > width[i]) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  std::stack<std::pair<double, double>> range_stack;
+  range_stack.push({0.0, 1.0});
+
+  std::unordered_map<double, ob::State*> fraction_to_state_table;
+  std::set<double> fraction_set;
+
+  // adaptively divide the path
+  while (!range_stack.empty()) {
+    const auto range_pair = range_stack.top();
+    range_stack.pop();
+    const double left = range_pair.first;
+    const double right = range_pair.second;
+
+    fraction_set.insert(left);
+    fraction_set.insert(right);
+
+    bool is_too_small_interval = (right - left) < 1e-5;
+    if (is_too_small_interval) {
+      // note: although this error can be avoided by manualy setting smaller delta size, it
+      // usually deteriorate the performance a lot. So, I want to stick to the default ompl
+      // pamater. (default is almost always right)
+      std::string message =
+          "seems that css->delta (step size to traverse geodestic) is too large for the box "
+          "width";
+      throw std::runtime_error(message);
+    }
+
+    // interpolate state given fraction if not interpolate yet
+    // note that as well as interpolation we check if the interpolated state is valid or not
+    // and if not valid, returning false.
+    for (double fraction : std::array<double, 2>{left, right}) {
+      const bool not_evaluated_yet =
+          fraction_to_state_table.find(fraction) == fraction_to_state_table.end();
+      if (not_evaluated_yet) {
+        const auto s_new = si->allocState();
+        space->interpolate(s1, s2, fraction, s_new);
+        if (!si->isValid(s_new)) {
+          return {};
+        }
+        fraction_to_state_table.insert({fraction, s_new});
+      }
+    }
+    assert(fraction_to_state_table.find(left) != fraction_to_state_table.end());
+    assert(fraction_to_state_table.find(right) != fraction_to_state_table.end());
+
+    // check if two states are inside the constraint box
+    const ob::State* s_left = fraction_to_state_table.find(left)->second;
+    const ob::State* s_right = fraction_to_state_table.find(right)->second;
+
+    const bool require_split = !is_state_pair_inside_box(s_left, s_right);
+    if (require_split) {
+      const double middle = 0.5 * (left + right);
+      range_stack.push({left, middle});
+      range_stack.push({middle, right});
+    }
+  }
+
+  // convert (ordered) fraction set to state sequence
+  std::vector<ob::State*> states(fraction_set.size());
+  for (auto it = fraction_set.begin(); it != fraction_set.end(); ++it) {
+    states.push_back(fraction_to_state_table.find(*it)->second);
+  }
+  return states;
+}
+
 class GeodesicBoxMotionValidator : public ob::MotionValidator
 {
  public:
@@ -183,83 +275,8 @@ class GeodesicBoxMotionValidator : public ob::MotionValidator
 
   bool checkMotion(const ob::State* s1, const ob::State* s2) const
   {
-    // this function involves a lot of dynamic allocation (e.g. stack, hashmap, vector, state)
-    // but compard to collision detection cost, it should be negligible.
-    // TODO: do performance profiling later
-
-    // unlike non-constrianed case, the constrained case traverse on manifold
-    std::stack<std::pair<double, double>> range_stack;
-    // range_stack.push(std::make_pair<double, double>(0.0, 0.5));
-    range_stack.push({0.0, 0.5});
-    range_stack.push({0.5, 1.0});
-
-    std::unordered_map<double, ob::State*> fraction_to_state_table;
-
-    const auto space = si_->getStateSpace();
-    const size_t dim = space->getDimension();
-
-    const auto is_state_pair_inside_box = [*this, dim](const ob::State* s1,
-                                                       const ob::State* s2) -> bool {
-      const auto vec_left = state_to_vec<true>(s1, dim);
-      const auto vec_right = state_to_vec<true>(s2, dim);
-
-      for (size_t i = 0; i < dim; ++i) {
-        const double&& abs_diff_i = std::abs(vec_left[i] - vec_right[i]);
-        if (abs_diff_i > width_[i]) {
-          return false;
-        }
-      }
-      return true;
-    };
-
-    // adaptively divide the path
-    while (!range_stack.empty()) {
-      const auto range_pair = range_stack.top();
-      range_stack.pop();
-      const double left = range_pair.first;
-      const double right = range_pair.second;
-
-      bool is_too_small_fraction = (right - left) < 1e-5;
-      if (is_too_small_fraction) {
-        // note: although this error can be avoided by manualy setting smaller delta size, it
-        // usually deteriorate the performance a lot. So, I want to stick to the default ompl
-        // pamater. (default is almost always right)
-        std::string message =
-            "seems that css->delta (step size to traverse geodestic) is too large for the box "
-            "width";
-        throw std::runtime_error(message);
-      }
-
-      // interpolate state given fraction if not interpolate yet
-      // note that as well as interpolation we check if the interpolated state is valid or not
-      // and if not valid, returning false.
-      for (double fraction : std::array<double, 2>{left, right}) {
-        const bool not_evaluated_yet =
-            fraction_to_state_table.find(fraction) == fraction_to_state_table.end();
-        if (not_evaluated_yet) {
-          const auto s_new = si_->allocState();
-          space->interpolate(s1, s2, fraction, s_new);
-          if (!si_->isValid(s_new)) {
-            return false;
-          }
-          fraction_to_state_table.insert({fraction, s_new});
-        }
-      }
-      assert(fraction_to_state_table.find(left) != fraction_to_state_table.end());
-      assert(fraction_to_state_table.find(right) != fraction_to_state_table.end());
-
-      // check if two states are inside the constraint box
-      const ob::State* s_left = fraction_to_state_table.find(left)->second;
-      const ob::State* s_right = fraction_to_state_table.find(right)->second;
-
-      const bool require_split = !is_state_pair_inside_box(s_left, s_right);
-      if (require_split) {
-        const double middle = 0.5 * (left + right);
-        range_stack.push({left, middle});
-        range_stack.push({middle, right});
-      }
-    }
-    return true;
+    const auto states = split_geodesic_with_box(s1, s2, si_, width_);
+    return (states != std::nullopt);
   }
 
   bool checkMotion(const ob::State* s1,
