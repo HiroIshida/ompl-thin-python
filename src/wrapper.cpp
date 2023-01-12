@@ -168,16 +168,9 @@ struct CollisionAwareSpaceInformation {
                                  const std::function<bool(std::vector<double>)>& is_valid,
                                  size_t max_is_valid_call,
                                  const std::vector<double>& box_width)
-      : CollisionAwareSpaceInformation(bound2space(lb, ub), is_valid, max_is_valid_call, box_width)
-  {
-  }
-
-  CollisionAwareSpaceInformation(const ob::StateSpacePtr space,
-                                 const std::function<bool(std::vector<double>)>& is_valid,
-                                 size_t max_is_valid_call,
-                                 const std::vector<double>& box_width)
       : is_valid_(is_valid), is_valid_call_count_(0), max_is_valid_call_(max_is_valid_call)
   {
+    const auto space = bound2space(lb, ub);
     si_ = std::make_shared<ob::SpaceInformation>(space);
     if (box_width.size() != space->getDimension()) {
       throw std::runtime_error("box dimension and space dimension mismatch");
