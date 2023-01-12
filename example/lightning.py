@@ -3,9 +3,8 @@ import time
 
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
 
-from ompl import LightningPlanner, Algorithm, Planner, LightningDB, set_ompl_random_seed, PathSimplifier
+from ompl import Algorithm, LightningDB, LightningPlanner, Planner, set_ompl_random_seed
 
 set_ompl_random_seed(0)
 np.random.seed(5)
@@ -39,7 +38,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     visualize: bool = args.visualize
 
-    planner = Planner([0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTConnect)
+    planner = Planner(
+        [0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTConnect
+    )
 
     db = LightningDB(2)
     for _ in range(30):
@@ -49,7 +50,9 @@ if __name__ == "__main__":
     db.save("tmp.db")
     db_again = LightningDB(2)
     db_again.load("tmp.db")
-    lightning = LightningPlanner(db_again, [0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTConnect)
+    lightning = LightningPlanner(
+        db_again, [0, 0], [1, 1], is_valid, 1000, [0.04, 0.04], Algorithm.RRTConnect
+    )
 
     ts = time.time()
     lightning_path = lightning.solve([0.01, 0.01], [0.99, 0.99])
@@ -69,7 +72,7 @@ if __name__ == "__main__":
         plot_trajectory(ax, np.array(lightning_path), "blue")
         plot_trajectory(ax, np.array(simplified_path), "green")
 
-        circle = plt.Circle((0.5, 0.5), 0.45, color='k', fill=False)
+        circle = plt.Circle((0.5, 0.5), 0.45, color="k", fill=False)
         ax.add_patch(circle)
 
         plt.show()

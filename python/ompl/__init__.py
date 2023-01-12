@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Sequence, Any, Callable, Optional, List, Union
-import numpy as np
 from pathlib import Path
+from typing import Any, Callable, List, Optional, Sequence, Union
+
+import numpy as np
 
 from . import _omplpy
 
@@ -45,16 +46,19 @@ class _OMPLPlannerBase(ABC):
     An additional higher layer wrapper.
     The primal reason of this class is exposing type hinting
     """
+
     _planner: Any
     _is_valid: IsValidFunc
 
-    def __init__(self,
-            lb: VectorLike,
-            ub: VectorLike,
-            is_valid: IsValidFunc,
-            n_max_is_valid: int,
-            validation_box: Union[np.ndarray, float],
-            algo: Algorithm = Algorithm.RRTConnect):
+    def __init__(
+        self,
+        lb: VectorLike,
+        ub: VectorLike,
+        is_valid: IsValidFunc,
+        n_max_is_valid: int,
+        validation_box: Union[np.ndarray, float],
+        algo: Algorithm = Algorithm.RRTConnect,
+    ):
 
         lb = np.array(lb)
         ub = np.array(ub)
@@ -65,10 +69,14 @@ class _OMPLPlannerBase(ABC):
         if isinstance(validation_box, float):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
-        self._planner = planner_t(lb, ub, is_valid, n_max_is_valid, validation_box, algo.value)
+        self._planner = planner_t(
+            lb, ub, is_valid, n_max_is_valid, validation_box, algo.value
+        )
         self.reset_is_valid(is_valid)
 
-    def solve(self, start: VectorLike, goal: VectorLike, simplify: bool=False) -> Optional[List[np.ndarray]]:
+    def solve(
+        self, start: VectorLike, goal: VectorLike, simplify: bool = False
+    ) -> Optional[List[np.ndarray]]:
         start = np.array(start)
         goal = np.array(goal)
 
@@ -91,14 +99,15 @@ class _OMPLPlannerBase(ABC):
 
 
 class Planner(_OMPLPlannerBase):
-
-    def __init__(self,
-            lb: VectorLike,
-            ub: VectorLike,
-            is_valid: IsValidFunc,
-            n_max_is_valid: int,
-            validation_box: Union[np.ndarray, float],
-            algo: Algorithm = Algorithm.RRTConnect):
+    def __init__(
+        self,
+        lb: VectorLike,
+        ub: VectorLike,
+        is_valid: IsValidFunc,
+        n_max_is_valid: int,
+        validation_box: Union[np.ndarray, float],
+        algo: Algorithm = Algorithm.RRTConnect,
+    ):
 
         lb = np.array(lb)
         ub = np.array(ub)
@@ -109,7 +118,9 @@ class Planner(_OMPLPlannerBase):
         if isinstance(validation_box, float):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
-        self._planner = planner_t(lb, ub, is_valid, n_max_is_valid, validation_box, algo.value)
+        self._planner = planner_t(
+            lb, ub, is_valid, n_max_is_valid, validation_box, algo.value
+        )
         self.reset_is_valid(is_valid)
 
     def planner_type(self) -> Any:
@@ -146,15 +157,16 @@ class LightningDB(_omplpy._LightningDB):
 
 
 class LightningPlanner(_OMPLPlannerBase):
-
-    def __init__(self,
-            db: LightningDB,
-            lb: VectorLike,
-            ub: VectorLike,
-            is_valid: IsValidFunc,
-            n_max_is_valid: int,
-            validation_box: Union[np.ndarray, float],
-            algo: Algorithm = Algorithm.RRTConnect):
+    def __init__(
+        self,
+        db: LightningDB,
+        lb: VectorLike,
+        ub: VectorLike,
+        is_valid: IsValidFunc,
+        n_max_is_valid: int,
+        validation_box: Union[np.ndarray, float],
+        algo: Algorithm = Algorithm.RRTConnect,
+    ):
 
         lb = np.array(lb)
         ub = np.array(ub)
@@ -165,7 +177,9 @@ class LightningPlanner(_OMPLPlannerBase):
         if isinstance(validation_box, float):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
-        self._planner = planner_t(db, lb, ub, is_valid, n_max_is_valid, validation_box, algo.value)
+        self._planner = planner_t(
+            db, lb, ub, is_valid, n_max_is_valid, validation_box, algo.value
+        )
         self.reset_is_valid(is_valid)
 
     def planner_type(self) -> Any:
@@ -173,13 +187,14 @@ class LightningPlanner(_OMPLPlannerBase):
 
 
 class PathSimplifier(_omplpy._PathSimplifier):
-
-    def __init__(self,
-            lb: VectorLike,
-            ub: VectorLike,
-            is_valid: IsValidFunc,
-            n_max_is_valid: int,
-            validation_box: Union[np.ndarray, float]):
+    def __init__(
+        self,
+        lb: VectorLike,
+        ub: VectorLike,
+        is_valid: IsValidFunc,
+        n_max_is_valid: int,
+        validation_box: Union[np.ndarray, float],
+    ):
 
         lb = np.array(lb)
         ub = np.array(ub)

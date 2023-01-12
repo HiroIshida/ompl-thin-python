@@ -1,12 +1,12 @@
 import time
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 from ompl import LightningDB, LightningPlanner, Planner
 
 
 def test_lightning(visualize: bool = False):
-
     def is_valid(p):
         # create difficult problem
         time.sleep(1e-5)
