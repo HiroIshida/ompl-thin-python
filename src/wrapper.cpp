@@ -68,9 +68,17 @@ namespace ob = ompl::base;
 namespace og = ompl::geometric;
 namespace ot = ompl::tools;
 
+template <bool Constrained>
 std::vector<double> state_to_vec(const ob::State* state, size_t dim)
 {
-  const auto rs = state->as<ob::RealVectorStateSpace::StateType>();
+  const ob::RealVectorStateSpace::StateType* rs;
+  if constexpr (Constrained) {
+    rs = state->as<ompl::base::ConstrainedStateSpace::StateType>()
+             ->getState()
+             ->as<ob::RealVectorStateSpace::StateType>();
+  } else {
+    rs = state->as<ob::RealVectorStateSpace::StateType>();
+  }
   std::vector<double> vec(dim);
   for (size_t i = 0; i < dim; ++i) {
     vec[i] = rs->values[i];
@@ -188,7 +196,7 @@ struct CollisionAwareSpaceInformation {
   bool is_valid(const ob::State* state)
   {
     const size_t dim = si_->getStateDimension();
-    const auto vec = state_to_vec(state, dim);
+    const auto vec = state_to_vec<Constrained>(state, dim);
     this->is_valid_call_count_++;
     return is_valid_(vec);
   }
@@ -236,6 +244,7 @@ struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInf
   }
 };
 
+template <bool Constrained>
 class PlannerBase
 {
  public:
@@ -285,7 +294,7 @@ class PlannerBase
     const auto& states = p->getStates();
     auto trajectory = std::vector<std::vector<double>>();
     for (const auto& state : states) {
-      trajectory.push_back(state_to_vec(state, dim));
+      trajectory.push_back(state_to_vec<Constrained>(state, dim));
     }
     return trajectory;
   }
@@ -329,14 +338,14 @@ class PlannerBase
   std::unique_ptr<og::SimpleSetup> setup_;
 };
 
-struct OMPLPlanner : public PlannerBase {
+struct OMPLPlanner : public PlannerBase<false> {
   OMPLPlanner(const std::vector<double>& lb,
               const std::vector<double>& ub,
               const std::function<bool(std::vector<double>)>& is_valid,
               size_t max_is_valid_call,
               const std::vector<double>& box_width,
               const std::string& algo_name)
-      : PlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
+      : PlannerBase<false>(lb, ub, is_valid, max_is_valid_call, box_width)
   {
     const auto algo = create_algorithm(algo_name);
     setup_->setPlanner(algo);
@@ -370,7 +379,7 @@ struct LightningDBWrap {
       std::vector<std::vector<double>> path;
       for (std::size_t i = 0; i < data->numVertices(); ++i) {
         const auto vert = data->getVertex(i);
-        path.push_back(state_to_vec(vert.getState(), dim));
+        path.push_back(state_to_vec<false>(vert.getState(), dim));
       }
       paths.push_back(path);
     }
@@ -387,7 +396,7 @@ struct LightningDBWrap {
   ot::LightningDBPtr db;
 };
 
-struct LightningPlanner : public PlannerBase {
+struct LightningPlanner : public PlannerBase<false> {
   LightningPlanner(const LightningDBWrap& dbwrap,
                    const std::vector<double>& lb,
                    const std::vector<double>& ub,
@@ -395,13 +404,14 @@ struct LightningPlanner : public PlannerBase {
                    size_t max_is_valid_call,
                    const std::vector<double>& box_width,
                    const std::string& algo_name)
-      : PlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
+      : PlannerBase<false>(lb, ub, is_valid, max_is_valid_call, box_width)
   {
     auto repair_planner = std::make_shared<og::LightningRetrieveRepair>(csi_->si_, dbwrap.db);
     setup_->setPlanner(repair_planner);
   }
 };
 
+// delete this later
 struct PathSimplifierWrapper {
   PathSimplifierWrapper(const std::vector<double>& lb,
                         const std::vector<double>& ub,
@@ -426,7 +436,7 @@ struct PathSimplifierWrapper {
     psk_->simplify(pg, fn);
     std::vector<std::vector<double>> points_out;
     for (const auto state : pg.getStates()) {
-      points_out.push_back(state_to_vec(state, dim));
+      points_out.push_back(state_to_vec<false>(state, dim));
     }
     double simplifyTime = ompl::time::seconds(ompl::time::now() - simplifyStart);
     OMPL_INFORM("ompl_thin: Path simplification took %f seconds", simplifyTime);
