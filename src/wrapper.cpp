@@ -411,42 +411,6 @@ struct LightningPlanner : public PlannerBase<false> {
   }
 };
 
-// delete this later
-struct PathSimplifierWrapper {
-  PathSimplifierWrapper(const std::vector<double>& lb,
-                        const std::vector<double>& ub,
-                        const std::function<bool(std::vector<double>)>& is_valid,
-                        size_t max_is_valid_call,
-                        const std::vector<double>& box_width)
-  {
-    csi_ = std::make_unique<UnconstrianedCollisoinAwareSpaceInformation>(
-        lb, ub, is_valid, max_is_valid_call, box_width);
-    psk_ = std::make_shared<og::PathSimplifier>(csi_->si_);
-    csi_->si_->setStateValidityChecker(
-        [this](const ob::State* s) { return this->csi_->is_valid(s); });
-  }
-
-  std::vector<std::vector<double>> simplify(const std::vector<std::vector<double>>& points)
-  {
-    ompl::time::point simplifyStart = ompl::time::now();
-    csi_->resetCount();
-    const size_t dim = csi_->si_->getStateDimension();
-    auto pg = points_to_pathgeometric(points, csi_->si_);
-    std::function<bool()> fn = [this]() { return csi_->is_terminatable(); };
-    psk_->simplify(pg, fn);
-    std::vector<std::vector<double>> points_out;
-    for (const auto state : pg.getStates()) {
-      points_out.push_back(state_to_vec<false>(state, dim));
-    }
-    double simplifyTime = ompl::time::seconds(ompl::time::now() - simplifyStart);
-    OMPL_INFORM("ompl_thin: Path simplification took %f seconds", simplifyTime);
-    return points_out;
-  }
-
-  std::unique_ptr<UnconstrianedCollisoinAwareSpaceInformation> csi_;
-  og::PathSimplifierPtr psk_;
-};
-
 void setGlobalSeed(size_t seed) { ompl::RNG::setSeed(seed); }
 
 PYBIND11_MODULE(_omplpy, m)
@@ -481,12 +445,4 @@ PYBIND11_MODULE(_omplpy, m)
                     std::string>())
       .def("reset_is_valid", &LightningPlanner::resetIsValid)
       .def("solve", &LightningPlanner::solve);
-
-  py::class_<PathSimplifierWrapper>(m, "_PathSimplifier")
-      .def(py::init<std::vector<double>,
-                    std::vector<double>,
-                    std::function<bool(std::vector<double>)>,
-                    size_t,
-                    std::vector<double>>())
-      .def("simplify", &PathSimplifierWrapper::simplify);
 }
