@@ -1,9 +1,13 @@
+#include <ompl/base/ConstrainedSpaceInformation.h>
+#include <ompl/base/Constraint.h>
 #include <ompl/base/PlannerTerminationCondition.h>
 #include <ompl/base/State.h>
 #include <ompl/base/StateSampler.h>
 #include <ompl/base/StateSpace.h>
 #include <ompl/base/spaces/RealVectorBounds.h>
 #include <ompl/base/spaces/RealVectorStateSpace.h>
+#include <ompl/base/spaces/constraint/ConstrainedStateSpace.h>
+#include <ompl/base/spaces/constraint/ProjectedStateSpace.h>
 #include <ompl/geometric/PathGeometric.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/fmt/BFMT.h>
@@ -162,23 +166,8 @@ class BoxMotionValidator : public ob::MotionValidator
   std::vector<double> width_;
 };
 
+template <bool Constrained>
 struct CollisionAwareSpaceInformation {
-  CollisionAwareSpaceInformation(const std::vector<double>& lb,
-                                 const std::vector<double>& ub,
-                                 const std::function<bool(std::vector<double>)>& is_valid,
-                                 size_t max_is_valid_call,
-                                 const std::vector<double>& box_width)
-      : is_valid_(is_valid), is_valid_call_count_(0), max_is_valid_call_(max_is_valid_call)
-  {
-    const auto space = bound2space(lb, ub);
-    si_ = std::make_shared<ob::SpaceInformation>(space);
-    if (box_width.size() != space->getDimension()) {
-      throw std::runtime_error("box dimension and space dimension mismatch");
-    }
-    si_->setMotionValidator(std::make_shared<BoxMotionValidator>(si_, box_width));
-    si_->setup();
-  }
-
   void resetCount() { this->is_valid_call_count_ = 0; }
 
   static std::shared_ptr<ob::StateSpace> bound2space(const std::vector<double>& lb,
@@ -210,6 +199,43 @@ struct CollisionAwareSpaceInformation {
   const size_t max_is_valid_call_;
 };
 
+struct UnconstrianedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInformation<false> {
+  UnconstrianedCollisoinAwareSpaceInformation(
+      const std::vector<double>& lb,
+      const std::vector<double>& ub,
+      const std::function<bool(std::vector<double>)>& is_valid,
+      size_t max_is_valid_call,
+      const std::vector<double>& box_width)
+      : CollisionAwareSpaceInformation<false>{nullptr, is_valid, 0, max_is_valid_call}
+  {
+    const auto space = bound2space(lb, ub);
+    si_ = std::make_shared<ob::SpaceInformation>(space);
+    if (box_width.size() != space->getDimension()) {
+      throw std::runtime_error("box dimension and space dimension mismatch");
+    }
+    si_->setMotionValidator(std::make_shared<BoxMotionValidator>(si_, box_width));
+    si_->setup();
+  }
+};
+
+struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInformation<true> {
+  ConstrainedCollisoinAwareSpaceInformation(
+      const std::shared_ptr<ob::Constraint> constraint,
+      const std::vector<double>& lb,
+      const std::vector<double>& ub,
+      const std::function<bool(std::vector<double>)>& is_valid,
+      size_t max_is_valid_call,
+      const std::vector<double>& box_width)
+      : CollisionAwareSpaceInformation<true>{nullptr, is_valid, 0, max_is_valid_call}
+  {
+    const auto space = bound2space(lb, ub);
+    const auto css = std::make_shared<ob::ProjectedStateSpace>(space, constraint);
+    const auto csi = std::make_shared<ob::ConstrainedSpaceInformation>(css);
+    si_ = std::static_pointer_cast<ob::SpaceInformation>(csi);
+    si_->setup();
+  }
+};
+
 class PlannerBase
 {
  public:
@@ -220,7 +246,7 @@ class PlannerBase
               const std::vector<double>& box_width)
       : csi_(nullptr), setup_(nullptr)
   {
-    csi_ = std::make_unique<CollisionAwareSpaceInformation>(
+    csi_ = std::make_unique<UnconstrianedCollisoinAwareSpaceInformation>(
         lb, ub, is_valid, max_is_valid_call, box_width);
     setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
     setup_->setStateValidityChecker([this](const ob::State* s) { return this->csi_->is_valid(s); });
@@ -299,7 +325,7 @@ class PlannerBase
     throw std::runtime_error("algorithm " + name + " is not supported");
   }
 
-  std::unique_ptr<CollisionAwareSpaceInformation> csi_;
+  std::unique_ptr<UnconstrianedCollisoinAwareSpaceInformation> csi_;
   std::unique_ptr<og::SimpleSetup> setup_;
 };
 
@@ -383,7 +409,7 @@ struct PathSimplifierWrapper {
                         size_t max_is_valid_call,
                         const std::vector<double>& box_width)
   {
-    csi_ = std::make_unique<CollisionAwareSpaceInformation>(
+    csi_ = std::make_unique<UnconstrianedCollisoinAwareSpaceInformation>(
         lb, ub, is_valid, max_is_valid_call, box_width);
     psk_ = std::make_shared<og::PathSimplifier>(csi_->si_);
     csi_->si_->setStateValidityChecker(
@@ -407,7 +433,7 @@ struct PathSimplifierWrapper {
     return points_out;
   }
 
-  std::unique_ptr<CollisionAwareSpaceInformation> csi_;
+  std::unique_ptr<UnconstrianedCollisoinAwareSpaceInformation> csi_;
   og::PathSimplifierPtr psk_;
 };
 
