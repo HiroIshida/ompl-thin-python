@@ -2,30 +2,28 @@ import time
 
 import matplotlib.pyplot as plt
 import numpy as np
+from common import IsValid, ProblemDef
 
 from ompl import LightningDB, LightningPlanner, Planner
 
 
 def test_lightning(visualize: bool = False):
-    def is_valid(p):
-        # create difficult problem
-        time.sleep(1e-5)
-        x, y = p
-        if x < 0.2 or x > 0.8:
-            return True
-        if abs(y - 0.5) < 0.006:
-            return True
-        return False
 
-    planner = Planner([0, 0], [1, 1], is_valid, 1000000, 0.001)
+    is_valid = IsValid(1e-5)
+
+    pdef = ProblemDef()
+
+    planner = Planner(pdef.lb, pdef.ub, is_valid, pdef.n_max_call, pdef.motion_step_box)
     ts = time.time()
-    res = planner.solve([0.1, 0.1], [0.9, 0.9])
+    res = planner.solve(pdef.start, pdef.goal)
     elapsed_rrtconnect = time.time() - ts
     assert res is not None
 
     db = LightningDB(2)
     db.add_experience(res)
-    lighting = LightningPlanner(db, [0, 0], [1, 1], is_valid, 100000, 0.001)
+    lighting = LightningPlanner(
+        db, pdef.lb, pdef.ub, is_valid, pdef.n_max_call, pdef.motion_step_box
+    )
     ts = time.time()
     lightning_result = lighting.solve([0.1, 0.2], [0.9, 0.8])
     elapsed_lightning = time.time() - ts
