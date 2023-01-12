@@ -127,6 +127,37 @@ class Planner(_OMPLPlannerBase):
         return _omplpy._OMPLPlanner
 
 
+class ConstrainedPlanner(_OMPLPlannerBase):
+    def __init__(
+        self,
+        f_const: Callable[[np.ndarray], np.ndarray],
+        jac_const: Callable[[np.ndarray], np.ndarray],
+        lb: VectorLike,
+        ub: VectorLike,
+        is_valid: IsValidFunc,
+        n_max_is_valid: int,
+        validation_box: Union[np.ndarray, float],
+        algo: Algorithm = Algorithm.RRTConnect,
+    ):
+
+        lb = np.array(lb)
+        ub = np.array(ub)
+        assert lb.ndim == 1
+        assert ub.ndim == 1
+        assert len(lb) == len(ub)
+        planner_t = self.planner_type()
+        if isinstance(validation_box, float):
+            dim = len(lb)
+            validation_box = np.array([validation_box] * dim)
+        self._planner = planner_t(
+            f_const, jac_const, lb, ub, is_valid, n_max_is_valid, validation_box
+        )
+        self.reset_is_valid(is_valid)
+
+    def planner_type(self) -> Any:
+        return _omplpy._ConstrainedPlanner
+
+
 class LightningDB(_omplpy._LightningDB):
     dim: int
 

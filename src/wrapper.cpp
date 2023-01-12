@@ -10,6 +10,18 @@ PYBIND11_MODULE(_omplpy, m)
 {
   m.doc() = "unofficial ompl python wrapper";
   m.def("set_random_seed", &setGlobalSeed);
+
+  py::class_<ConstrainedPlanner>(m, "_ConstrainedPlanner")
+      .def(py::init<const ConstFn&,
+                    const ConstJacFn&,
+                    std::vector<double>,
+                    std::vector<double>,
+                    std::function<bool(std::vector<double>)>,
+                    size_t,
+                    std::vector<double>>())
+      .def("reset_is_valid", &ConstrainedPlanner::resetIsValid)
+      .def("solve", &ConstrainedPlanner::solve);
+
   py::class_<OMPLPlanner>(m, "_OMPLPlanner")
       .def(py::init<std::vector<double>,
                     std::vector<double>,

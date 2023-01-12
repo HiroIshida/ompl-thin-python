@@ -36,6 +36,7 @@
 
 #include <boost/filesystem.hpp>
 #include <cassert>
+#include <cstddef>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -66,6 +67,11 @@
 namespace ob = ompl::base;
 namespace og = ompl::geometric;
 namespace ot = ompl::tools;
+
+// TODO: I wanted to pass and return eigen::matrix / vector, but
+// pybind fail to convert numpy to eigen in callback case
+using ConstFn = std::function<std::vector<double>(std::vector<double>)>;
+using ConstJacFn = std::function<std::vector<std::vector<double>>(std::vector<double>)>;
 
 template <bool Constrained>
 std::vector<double> state_to_vec(const ob::State* state, size_t dim)
@@ -287,6 +293,39 @@ class GeodesicBoxMotionValidator : public ob::MotionValidator
   std::vector<double> width_;
 };
 
+class ConstraintWrap : public ob::Constraint
+{
+ public:
+  ConstraintWrap(const ConstFn& f, const ConstJacFn& jac) : ob::Constraint(3, 1), f_(f), jac_(jac)
+  {
+  }
+
+  void function(const Eigen::Ref<const Eigen::VectorXd>& x,
+                Eigen::Ref<Eigen::VectorXd> out) const override
+  {
+    std::vector<double> xvec(x.data(), x.data() + x.size());
+    const auto yvec = f_(xvec);
+    for (size_t i = 0; i < yvec.size(); ++i) {
+      out[i] = yvec[i];
+    }
+  }
+
+  void jacobian(const Eigen::Ref<const Eigen::VectorXd>& x,
+                Eigen::Ref<Eigen::MatrixXd> out) const override
+  {
+    std::vector<double> xvec(x.data(), x.data() + x.size());
+    const auto yvecvec = jac_(xvec);
+    for (size_t i = 0; i < yvecvec.size(); ++i) {
+      for (size_t j = 0; j < yvecvec.front().size(); ++j) {
+        out(i, j) = yvecvec[i][j];
+      }
+    }
+  }
+
+  ConstFn f_;
+  ConstJacFn jac_;
+};
+
 template <bool Constrained>
 struct CollisionAwareSpaceInformation {
   void resetCount() { this->is_valid_call_count_ = 0; }
@@ -342,7 +381,8 @@ struct UnconstrianedCollisoinAwareSpaceInformation : public CollisionAwareSpaceI
 
 struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInformation<true> {
   ConstrainedCollisoinAwareSpaceInformation(
-      const std::shared_ptr<ob::Constraint> constraint,
+      const ConstFn& f_const,
+      const ConstJacFn& jac_const,
       const std::vector<double>& lb,
       const std::vector<double>& ub,
       const std::function<bool(std::vector<double>)>& is_valid,
@@ -350,6 +390,8 @@ struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInf
       const std::vector<double>& box_width)
       : CollisionAwareSpaceInformation<true>{nullptr, is_valid, 0, max_is_valid_call, box_width}
   {
+    std::shared_ptr<ob::Constraint> constraint =
+        std::make_shared<ConstraintWrap>(f_const, jac_const);
     const auto space = bound2space(lb, ub);
     const auto css = std::make_shared<ob::ProjectedStateSpace>(space, constraint);
     const auto csi = std::make_shared<ob::ConstrainedSpaceInformation>(css);
@@ -390,8 +432,8 @@ struct PlannerBase {
       return {};
     }
     if (simplify) {
-      if constexpr(Constrained){
-          std::runtime_error("simplify does not seem to work well in constrinaed case"); 
+      if constexpr (Constrained) {
+        std::runtime_error("simplify does not seem to work well in constrinaed case");
       }
       setup_->simplifySolution(fn);
     }
@@ -469,7 +511,8 @@ struct PlannerBase {
 };
 
 struct ConstrainedPlanner : public PlannerBase<true> {
-  ConstrainedPlanner(const std::shared_ptr<ob::Constraint> constraint,
+  ConstrainedPlanner(const ConstFn& f_const,
+                     const ConstJacFn& jac_const,
                      const std::vector<double>& lb,
                      const std::vector<double>& ub,
                      const std::function<bool(std::vector<double>)>& is_valid,
@@ -478,7 +521,7 @@ struct ConstrainedPlanner : public PlannerBase<true> {
       : PlannerBase<true>{nullptr, nullptr}
   {
     csi_ = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(
-        constraint, lb, ub, is_valid, max_is_valid_call, box_width);
+        f_const, jac_const, lb, ub, is_valid, max_is_valid_call, box_width);
 
     setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
     setup_->setStateValidityChecker([this](const ob::State* s) { return this->csi_->is_valid(s); });
