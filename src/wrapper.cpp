@@ -245,22 +245,7 @@ struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInf
 };
 
 template <bool Constrained>
-class PlannerBase
-{
- public:
-  PlannerBase(const std::vector<double>& lb,
-              const std::vector<double>& ub,
-              const std::function<bool(std::vector<double>)>& is_valid,
-              size_t max_is_valid_call,
-              const std::vector<double>& box_width)
-      : csi_(nullptr), setup_(nullptr)
-  {
-    csi_ = std::make_unique<UnconstrianedCollisoinAwareSpaceInformation>(
-        lb, ub, is_valid, max_is_valid_call, box_width);
-    setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
-    setup_->setStateValidityChecker([this](const ob::State* s) { return this->csi_->is_valid(s); });
-  }
-
+struct PlannerBase {
   std::optional<std::vector<std::vector<double>>> solve(const std::vector<double>& start,
                                                         const std::vector<double>& goal,
                                                         bool simplify)
@@ -338,14 +323,46 @@ class PlannerBase
   std::unique_ptr<og::SimpleSetup> setup_;
 };
 
-struct OMPLPlanner : public PlannerBase<false> {
+struct ConstrainedPlannerBase : public PlannerBase<true> {
+  ConstrainedPlannerBase(const std::shared_ptr<ob::Constraint> constraint,
+                         const std::vector<double>& lb,
+                         const std::vector<double>& ub,
+                         const std::function<bool(std::vector<double>)>& is_valid,
+                         size_t max_is_valid_call,
+                         const std::vector<double>& box_width)
+      : PlannerBase<true>{nullptr, nullptr}
+  {
+    const auto csi = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(
+        constraint, lb, ub, is_valid, max_is_valid_call, box_width);
+
+    setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
+    setup_->setStateValidityChecker([this](const ob::State* s) { return this->csi_->is_valid(s); });
+  }
+};
+
+struct UnconstrainedPlannerBase : public PlannerBase<false> {
+  UnconstrainedPlannerBase(const std::vector<double>& lb,
+                           const std::vector<double>& ub,
+                           const std::function<bool(std::vector<double>)>& is_valid,
+                           size_t max_is_valid_call,
+                           const std::vector<double>& box_width)
+      : PlannerBase<false>{nullptr, nullptr}
+  {
+    csi_ = std::make_unique<UnconstrianedCollisoinAwareSpaceInformation>(
+        lb, ub, is_valid, max_is_valid_call, box_width);
+    setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
+    setup_->setStateValidityChecker([this](const ob::State* s) { return this->csi_->is_valid(s); });
+  }
+};
+
+struct OMPLPlanner : public UnconstrainedPlannerBase {
   OMPLPlanner(const std::vector<double>& lb,
               const std::vector<double>& ub,
               const std::function<bool(std::vector<double>)>& is_valid,
               size_t max_is_valid_call,
               const std::vector<double>& box_width,
               const std::string& algo_name)
-      : PlannerBase<false>(lb, ub, is_valid, max_is_valid_call, box_width)
+      : UnconstrainedPlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
     const auto algo = create_algorithm(algo_name);
     setup_->setPlanner(algo);
@@ -396,7 +413,7 @@ struct LightningDBWrap {
   ot::LightningDBPtr db;
 };
 
-struct LightningPlanner : public PlannerBase<false> {
+struct LightningPlanner : public UnconstrainedPlannerBase {
   LightningPlanner(const LightningDBWrap& dbwrap,
                    const std::vector<double>& lb,
                    const std::vector<double>& ub,
@@ -404,7 +421,7 @@ struct LightningPlanner : public PlannerBase<false> {
                    size_t max_is_valid_call,
                    const std::vector<double>& box_width,
                    const std::string& algo_name)
-      : PlannerBase<false>(lb, ub, is_valid, max_is_valid_call, box_width)
+      : UnconstrainedPlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
     auto repair_planner = std::make_shared<og::LightningRetrieveRepair>(csi_->si_, dbwrap.db);
     setup_->setPlanner(repair_planner);
