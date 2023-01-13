@@ -154,6 +154,23 @@ class ConstrainedPlanner(_OMPLPlannerBase):
         )
         self.reset_is_valid(is_valid)
 
+    def solve(
+        self, start: VectorLike, goal: VectorLike, simplify: bool = False
+    ) -> Optional[List[np.ndarray]]:
+
+        # unlike unconstrained case, due to appliximation nature interpolation,
+        # start and goal can be deviated from true ones. Thus, we will apend them
+        np_start = np.array(start)
+        np_goal = np.array(goal)
+        traj = super().solve(start, goal, simplify=simplify)
+        if traj is None:
+            return None
+        if np.linalg.norm(traj[0] - np_start) > 1e-5:
+            traj[0] = np_start
+        if np.linalg.norm(traj[-1] - np_start) > 1e-5:
+            traj[-1] = np_goal
+        return traj
+
     def planner_type(self) -> Any:
         return _omplpy._ConstrainedPlanner
 
