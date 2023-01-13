@@ -1,9 +1,8 @@
-import time
 from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D, axes3d  # <-- Note the capitalization!
+from mpl_toolkits.mplot3d import Axes3D, axes3d  # noqa
 
 from ompl import ConstrainedPlanner, set_ompl_random_seed
 
@@ -11,8 +10,25 @@ set_ompl_random_seed(0)
 np.random.seed(0)
 
 
+def plt_sphere(list_center, list_radius, fig, ax):
+    for c, r in zip(list_center, list_radius):
+
+        # draw sphere
+        u, v = np.mgrid[0 : 2 * np.pi : 50j, 0 : np.pi : 50j]
+        x = r * np.cos(u) * np.sin(v)
+        y = r * np.sin(u) * np.sin(v)
+        z = r * np.cos(v)
+
+        ax.plot_surface(
+            x - c[0],
+            y - c[1],
+            z - c[2],
+            color=np.random.choice(["g", "b"]),
+            alpha=0.5 * np.random.random() + 0.5,
+        )
+
+
 def f(x: np.ndarray) -> np.ndarray:
-    time.sleep(0.001)
     y = np.array([np.linalg.norm(x) - 1])
     return y
 
@@ -23,13 +39,28 @@ def jac(x: np.ndarray) -> List[List[float]]:
     return out
 
 
-planner = ConstrainedPlanner(
-    f, jac, [-2, -2, -2], [2, 2, 2], lambda x: True, 10000, 0.1
-)
-ret = planner.solve([-1, 0.0, 0.0], [1, 0.0, 0.0], False)
+def test_constrained_planner(visualize: bool = False):
+    planner = ConstrainedPlanner(
+        f, jac, [-2, -2, -2], [2, 2, 2], lambda x: True, 10000, 0.1
+    )
+    start = np.array([-1, 0.0, 0.0])
+    goal = np.array([1, 0.0, 0.0])
+    traj = planner.solve(start, goal, False)
 
-fig = plt.figure()
-ax = fig.add_subplot(projection="3d")
-X = np.array(ret)
-ax.scatter(X[:, 0], X[:, 1], X[:, 2])
-plt.show()
+    assert traj is not None
+    for p in traj:
+        assert np.all(np.abs(f(p)) < 1e-3)
+    assert np.linalg.norm(traj[0] - start) < 1e-3
+    assert np.linalg.norm(traj[-1] - goal) < 1e-3
+
+    if visualize:
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+        plt_sphere([[0, 0, 0]], [0.97], fig, ax)
+        X = np.array(traj)
+        ax.scatter(X[:, 0], X[:, 1], X[:, 2])
+        plt.show()
+
+
+if __name__ == "__main__":
+    test_constrained_planner(True)
