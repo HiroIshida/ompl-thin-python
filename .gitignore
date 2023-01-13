@@ -1,4 +1,6 @@
 /build
+/build_debug
+/build_release
 *.json
 /.cache
 
