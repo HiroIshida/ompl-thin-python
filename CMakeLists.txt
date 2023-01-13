@@ -18,10 +18,6 @@ add_subdirectory(pybind11)
 option(OMPL_REGISTRATION OFF)  # avoid popup in browser
 add_subdirectory(ompl)
 
-add_executable(demo_constrained example/constrained.cpp)
-include_directories(src ompl/src ${CMAKE_CURRENT_BINARY_DIR}/ompl/src)
-target_link_libraries(demo_constrained PRIVATE ompl ${Boost_LIBRARIES})
-
 include_directories(ompl/src ${CMAKE_CURRENT_BINARY_DIR}/ompl/src)
 pybind11_add_module(_omplpy src/wrapper.cpp)
 target_link_libraries(_omplpy PRIVATE ompl ${Boost_LIBRARIES})

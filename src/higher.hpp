@@ -296,7 +296,8 @@ class GeodesicBoxMotionValidator : public ob::MotionValidator
 class ConstraintWrap : public ob::Constraint
 {
  public:
-  ConstraintWrap(const ConstFn& f, const ConstJacFn& jac) : ob::Constraint(3, 1), f_(f), jac_(jac)
+  ConstraintWrap(const ConstFn& f, const ConstJacFn& jac, size_t dim_ambient, size_t dim_constraint)
+      : ob::Constraint(dim_ambient, dim_constraint), f_(f), jac_(jac)
   {
   }
 
@@ -390,8 +391,10 @@ struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInf
       const std::vector<double>& box_width)
       : CollisionAwareSpaceInformation<true>{nullptr, is_valid, 0, max_is_valid_call, box_width}
   {
+    size_t dim_ambient = lb.size();
+    size_t dim_constraint = f_const(lb).size();  // detect by dummy input
     std::shared_ptr<ob::Constraint> constraint =
-        std::make_shared<ConstraintWrap>(f_const, jac_const);
+        std::make_shared<ConstraintWrap>(f_const, jac_const, dim_ambient, dim_constraint);
     const auto space = bound2space(lb, ub);
     const auto css = std::make_shared<ob::ProjectedStateSpace>(space, constraint);
     const auto csi = std::make_shared<ob::ConstrainedSpaceInformation>(css);
