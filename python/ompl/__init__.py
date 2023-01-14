@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Sequence, Union
+from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -130,8 +130,7 @@ class Planner(_OMPLPlannerBase):
 class ConstrainedPlanner(_OMPLPlannerBase):
     def __init__(
         self,
-        f_const: Callable[[np.ndarray], np.ndarray],
-        jac_const: Callable[[np.ndarray], np.ndarray],
+        eq_const: Callable[[np.ndarray], Tuple[np.ndarray, np.ndarray]],
         lb: VectorLike,
         ub: VectorLike,
         is_valid: IsValidFunc,
@@ -149,8 +148,25 @@ class ConstrainedPlanner(_OMPLPlannerBase):
         if isinstance(validation_box, float):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
+
+        class ConstraintFunction:
+            jac_cache: Optional[np.ndarray] = None
+
+            def __call__(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+                return eq_const(x)
+
+            def f(self, x: np.ndarray) -> List[float]:
+                val, jac = self.__call__(x)
+                self.jac_cache = jac
+                return val.tolist()
+
+            def jac(self, x: np.ndarray) -> List[List[float]]:
+                assert self.jac_cache is not None
+                return self.jac_cache.tolist()
+
+        const_fn = ConstraintFunction()
         self._planner = planner_t(
-            f_const, jac_const, lb, ub, is_valid, n_max_is_valid, validation_box
+            const_fn.f, const_fn.jac, lb, ub, is_valid, n_max_is_valid, validation_box
         )
         self.reset_is_valid(is_valid)
 

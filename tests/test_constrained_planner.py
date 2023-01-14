@@ -1,4 +1,4 @@
-from typing import List
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -28,20 +28,17 @@ def plt_sphere(list_center, list_radius, fig, ax):
         )
 
 
-def f(x: np.ndarray) -> np.ndarray:
+def eq_const(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     y = np.array([np.linalg.norm(x) - 1])
-    return y
 
-
-def jac(x: np.ndarray) -> List[List[float]]:
     dist = np.linalg.norm(x)
-    out = [(x / dist).tolist()]
-    return out
+    jac = np.expand_dims((x / dist), axis=0)
+    return y, jac
 
 
 def test_constrained_planner(visualize: bool = False):
     planner = ConstrainedPlanner(
-        f, jac, [-2, -2, -2], [2, 2, 2], lambda x: True, 10000, 0.1
+        eq_const, [-2, -2, -2], [2, 2, 2], lambda x: True, 10000, 0.1
     )
     start = np.array([-1, 0.0, 0.0])
     goal = np.array([1, 0.0, 0.0])
@@ -49,7 +46,8 @@ def test_constrained_planner(visualize: bool = False):
 
     assert traj is not None
     for p in traj:
-        assert np.all(np.abs(f(p)) < 1e-3)
+        val = eq_const(p)[0]
+        assert np.all(val < 1e-3)
     assert np.linalg.norm(traj[0] - start) < 1e-3
     assert np.linalg.norm(traj[-1] - goal) < 1e-3
 
