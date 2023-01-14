@@ -420,9 +420,15 @@ struct PlannerBase {
     ob::ScopedState<> sstart(csi_->si_->getStateSpace());
     ob::ScopedState<> sgoal(csi_->si_->getStateSpace());
 
-    sstart->as<ob::ConstrainedStateSpace::StateType>()->copy(vec_start);
-    sgoal->as<ob::ConstrainedStateSpace::StateType>()->copy(vec_goal);
-
+    if constexpr (Constrained) {
+      sstart->as<ob::ConstrainedStateSpace::StateType>()->copy(vec_start);
+      sgoal->as<ob::ConstrainedStateSpace::StateType>()->copy(vec_goal);
+    } else {
+      auto rstart = sstart->as<ob::RealVectorStateSpace::StateType>();
+      auto rgoal = sgoal->as<ob::RealVectorStateSpace::StateType>();
+      std::copy(start.begin(), start.end(), rstart->values);
+      std::copy(goal.begin(), goal.end(), rgoal->values);
+    }
     setup_->setStartAndGoalStates(sstart, sgoal);
 
     std::function<bool()> fn = [this]() { return csi_->is_terminatable(); };
@@ -463,7 +469,6 @@ struct PlannerBase {
         }
       }
     } else {
-      auto trajectory = std::vector<std::vector<double>>();
       for (const auto& state : states) {
         trajectory.push_back(state_to_vec<Constrained>(state, dim));
       }
