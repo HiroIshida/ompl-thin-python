@@ -18,7 +18,8 @@ PYBIND11_MODULE(_omplpy, m)
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,
                     size_t,
-                    std::vector<double>>())
+                    std::vector<double>,
+                    std::string>())
       .def("reset_is_valid", &ConstrainedPlanner::resetIsValid)
       .def("solve", &ConstrainedPlanner::solve);
 

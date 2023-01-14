@@ -525,13 +525,16 @@ struct ConstrainedPlanner : public PlannerBase<true> {
                      const std::vector<double>& ub,
                      const std::function<bool(std::vector<double>)>& is_valid,
                      size_t max_is_valid_call,
-                     const std::vector<double>& box_width)
+                     const std::vector<double>& box_width,
+                     const std::string& algo_name)
       : PlannerBase<true>{nullptr, nullptr}
   {
     csi_ = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(
         f_const, jac_const, lb, ub, is_valid, max_is_valid_call, box_width);
+    const auto algo = create_algorithm(algo_name);
 
     setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
+    setup_->setPlanner(algo);
     setup_->setStateValidityChecker([this](const ob::State* s) { return this->csi_->is_valid(s); });
   }
 };

@@ -166,7 +166,14 @@ class ConstrainedPlanner(_OMPLPlannerBase):
 
         const_fn = ConstraintFunction()
         self._planner = planner_t(
-            const_fn.f, const_fn.jac, lb, ub, is_valid, n_max_is_valid, validation_box
+            const_fn.f,
+            const_fn.jac,
+            lb,
+            ub,
+            is_valid,
+            n_max_is_valid,
+            validation_box,
+            algo.value,
         )
         self.reset_is_valid(is_valid)
 
