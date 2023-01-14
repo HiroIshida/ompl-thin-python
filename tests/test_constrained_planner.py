@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,9 +36,16 @@ def eq_const(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     return y, jac
 
 
+def is_valid(vec: List[float]) -> bool:
+    x, y, z = vec
+    if abs(x) < 0.2 and abs(z) < 0.8:
+        return False
+    return True
+
+
 def test_constrained_planner(visualize: bool = False):
     planner = ConstrainedPlanner(
-        eq_const, [-2, -2, -2], [2, 2, 2], lambda x: True, 10000, 0.1
+        eq_const, [-2, -2, -2], [2, 2, 2], is_valid, 10000, 0.1
     )
     start = np.array([-1, 0.0, 0.0])
     goal = np.array([1, 0.0, 0.0])
