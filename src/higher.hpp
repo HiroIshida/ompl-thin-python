@@ -31,6 +31,7 @@
 #include <ompl/tools/experience/ExperienceSetup.h>
 #include <ompl/tools/lightning/Lightning.h>
 #include <ompl/tools/lightning/LightningDB.h>
+#include <ompl/util/Console.h>
 #include <ompl/util/PPM.h>
 #include <ompl/util/Time.h>
 
@@ -468,6 +469,9 @@ struct PlannerBase {
           trajectory.push_back(state_to_vec<Constrained>(s_new, dim));
         }
       }
+      OMPL_INFORM("interpolate trajectory. original %d points => interped %d points",
+                  states.size(),
+                  trajectory.size());
     } else {
       for (const auto& state : states) {
         trajectory.push_back(state_to_vec<Constrained>(state, dim));
