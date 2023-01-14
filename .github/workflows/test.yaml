@@ -1,0 +1,30 @@
+name: CI
+
+on:
+    push:
+        branches:
+            - master
+    pull_request:
+        branches:
+            - master
+
+jobs:
+    build:
+        runs-on: ubuntu-20.04
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v2
+
+            - name: update submodule
+              run: git submodule update --init --depth=1
+
+            - name: Build python module
+              run: |
+                  sudo apt-get install libeigen3-dev libboost-all-dev -y
+                  pip3 install scikit-build
+                  pip3 install  .
+
+            - name: Test python module
+              run: |
+                  pip install pytest matplotlib
+                  pytest tests
