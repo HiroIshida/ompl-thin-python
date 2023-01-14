@@ -183,7 +183,7 @@ class ConstrainedPlanner(_OMPLPlannerBase):
             return None
         if np.linalg.norm(traj[0] - np_start) > 1e-5:
             traj[0] = np_start
-        if np.linalg.norm(traj[-1] - np_start) > 1e-5:
+        if np.linalg.norm(traj[-1] - np_goal) > 1e-5:
             traj[-1] = np_goal
         return traj
 
