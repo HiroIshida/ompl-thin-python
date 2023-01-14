@@ -45,7 +45,7 @@ def is_valid(vec: List[float]) -> bool:
 
 def test_constrained_planner(visualize: bool = False):
     planner = ConstrainedPlanner(
-        eq_const, [-2, -2, -2], [2, 2, 2], is_valid, 10000, 0.1
+        eq_const, [-2, -2, -2], [2, 2, 2], is_valid, 10000, 0.1, algo_range=0.3
     )
     start = np.array([-1, 0.0, 0.0])
     goal = np.array([1, 0.0, 0.0])

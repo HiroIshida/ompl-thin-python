@@ -12,29 +12,12 @@ IsValidFunc = Callable[[List[float]], bool]
 
 
 class Algorithm(Enum):
-    # informed
-    ABITstar = "ABITstar"
-    AITstar = "AITstar"
-    BITstar = "BITstar"
-    # kpiece
     BKPIECE1 = "BKPIECE1"
     KPIECE1 = "KPIECE1"
     LBKPIECE1 = "LBKPIECE1"
-    # rrt
     RRTConnect = "RRTConnect"
     RRT = "RRT"
     RRTstar = "RRTstar"
-    SORRTstar = "SORRTstar"
-    RRTsharp = "RRTsharp"
-    InformedRRTstar = "InformedRRTstar"
-    # prm
-    PRMstar = "PRMstar"
-    LazyPRMstar = "LazyPRMstar"
-    LazyPRM = "LazyPRM"
-    PRM = "PRM"
-    # fmt
-    BFMT = "BFMT"
-    FMT = "FMT"
 
 
 def set_ompl_random_seed(seed: int) -> None:
@@ -58,6 +41,7 @@ class _OMPLPlannerBase(ABC):
         n_max_is_valid: int,
         validation_box: Union[np.ndarray, float],
         algo: Algorithm = Algorithm.RRTConnect,
+        algo_range: Optional[float] = None,
     ):
 
         lb = np.array(lb)
@@ -107,6 +91,7 @@ class Planner(_OMPLPlannerBase):
         n_max_is_valid: int,
         validation_box: Union[np.ndarray, float],
         algo: Algorithm = Algorithm.RRTConnect,
+        algo_range: Optional[float] = None,
     ):
 
         lb = np.array(lb)
@@ -119,7 +104,7 @@ class Planner(_OMPLPlannerBase):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
         self._planner = planner_t(
-            lb, ub, is_valid, n_max_is_valid, validation_box, algo.value
+            lb, ub, is_valid, n_max_is_valid, validation_box, algo.value, algo_range
         )
         self.reset_is_valid(is_valid)
 
@@ -137,6 +122,7 @@ class ConstrainedPlanner(_OMPLPlannerBase):
         n_max_is_valid: int,
         validation_box: Union[np.ndarray, float],
         algo: Algorithm = Algorithm.RRTConnect,
+        algo_range: Optional[float] = None,
     ):
 
         lb = np.array(lb)
@@ -174,6 +160,7 @@ class ConstrainedPlanner(_OMPLPlannerBase):
             n_max_is_valid,
             validation_box,
             algo.value,
+            algo_range,
         )
         self.reset_is_valid(is_valid)
 
@@ -237,6 +224,7 @@ class LightningPlanner(_OMPLPlannerBase):
         n_max_is_valid: int,
         validation_box: Union[np.ndarray, float],
         algo: Algorithm = Algorithm.RRTConnect,
+        algo_range: Optional[float] = None,
     ):
 
         lb = np.array(lb)
@@ -249,7 +237,7 @@ class LightningPlanner(_OMPLPlannerBase):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
         self._planner = planner_t(
-            db, lb, ub, is_valid, n_max_is_valid, validation_box, algo.value
+            db, lb, ub, is_valid, n_max_is_valid, validation_box, algo.value, algo_range
         )
         self.reset_is_valid(is_valid)
 

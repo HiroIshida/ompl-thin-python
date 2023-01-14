@@ -74,6 +74,16 @@ namespace ot = ompl::tools;
 using ConstFn = std::function<std::vector<double>(std::vector<double>)>;
 using ConstJacFn = std::function<std::vector<std::vector<double>>(std::vector<double>)>;
 
+template <typename T>
+std::shared_ptr<T> create_algorithm(const ob::SpaceInformationPtr si, std::optional<double> range)
+{
+  auto algo = std::make_shared<T>(si);
+  if (range) {
+    algo->setRange(*range);
+  }
+  return algo;
+}
+
 template <bool Constrained>
 std::vector<double> state_to_vec(const ob::State* state, size_t dim)
 {
@@ -485,33 +495,20 @@ struct PlannerBase {
     csi_->is_valid_ = is_valid;
   }
 
-  std::shared_ptr<ob::Planner> create_algorithm(const std::string& name)
+  std::shared_ptr<ob::Planner> get_algorithm(const std::string& name, std::optional<double> range)
   {
     const auto space_info = csi_->si_;
-    std::shared_ptr<ob::Planner> algo_out;
-    // informed
-    ALLOCATE_ALGO(ABITstar);
-    ALLOCATE_ALGO(AITstar);
-    ALLOCATE_ALGO(BITstar);
-    // kpiece
-    ALLOCATE_ALGO(BKPIECE1);
-    ALLOCATE_ALGO(KPIECE1);
-    ALLOCATE_ALGO(LBKPIECE1);
-    // rrt
-    ALLOCATE_ALGO(RRTConnect);
-    ALLOCATE_ALGO(RRT);
-    ALLOCATE_ALGO(RRTstar);
-    ALLOCATE_ALGO(SORRTstar);
-    ALLOCATE_ALGO(RRTsharp);
-    ALLOCATE_ALGO(InformedRRTstar);
-    // rpm
-    ALLOCATE_ALGO(PRMstar);
-    ALLOCATE_ALGO(LazyPRMstar);
-    ALLOCATE_ALGO(LazyPRM);
-    ALLOCATE_ALGO(PRM);
-    // fmt
-    ALLOCATE_ALGO(BFMT);
-    ALLOCATE_ALGO(FMT);
+    if (name.compare("BKPIECE1") == 0) {
+      return create_algorithm<og::BKPIECE1>(space_info, range);
+    } else if (name.compare("KPIECE1") == 0) {
+      return create_algorithm<og::KPIECE1>(space_info, range);
+    } else if (name.compare("RRT") == 0) {
+      return create_algorithm<og::RRT>(space_info, range);
+    } else if (name.compare("RRTConnect") == 0) {
+      return create_algorithm<og::RRTConnect>(space_info, range);
+    } else if (name.compare("RRTstar") == 0) {
+      return create_algorithm<og::RRTstar>(space_info, range);
+    }
     throw std::runtime_error("algorithm " + name + " is not supported");
   }
 
@@ -530,12 +527,13 @@ struct ConstrainedPlanner : public PlannerBase<true> {
                      const std::function<bool(std::vector<double>)>& is_valid,
                      size_t max_is_valid_call,
                      const std::vector<double>& box_width,
-                     const std::string& algo_name)
+                     const std::string& algo_name,
+                     std::optional<double> range)
       : PlannerBase<true>{nullptr, nullptr}
   {
     csi_ = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(
         f_const, jac_const, lb, ub, is_valid, max_is_valid_call, box_width);
-    const auto algo = create_algorithm(algo_name);
+    const auto algo = get_algorithm(algo_name, range);
 
     setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
     setup_->setPlanner(algo);
@@ -564,10 +562,11 @@ struct OMPLPlanner : public UnconstrainedPlannerBase {
               const std::function<bool(std::vector<double>)>& is_valid,
               size_t max_is_valid_call,
               const std::vector<double>& box_width,
-              const std::string& algo_name)
+              const std::string& algo_name,
+              std::optional<double> range)
       : UnconstrainedPlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
-    const auto algo = create_algorithm(algo_name);
+    const auto algo = get_algorithm(algo_name, range);
     setup_->setPlanner(algo);
   }
 };
@@ -623,7 +622,8 @@ struct LightningPlanner : public UnconstrainedPlannerBase {
                    const std::function<bool(std::vector<double>)>& is_valid,
                    size_t max_is_valid_call,
                    const std::vector<double>& box_width,
-                   const std::string& algo_name)
+                   const std::string& algo_name,
+                   std::optional<double> range)
       : UnconstrainedPlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
     auto repair_planner = std::make_shared<og::LightningRetrieveRepair>(csi_->si_, dbwrap.db);
