@@ -19,7 +19,7 @@ option(OMPL_REGISTRATION OFF)  # avoid popup in browser
 add_subdirectory(ompl)
 
 include_directories(ompl/src ${CMAKE_CURRENT_BINARY_DIR}/ompl/src)
-pybind11_add_module(_omplpy src/wrapper.cpp)
+pybind11_add_module(_omplpy src/wrapper.cpp src/repair_planner.cpp)
 target_link_libraries(_omplpy PRIVATE ompl ${Boost_LIBRARIES})
 
 set(PIP_INSTALL ON)

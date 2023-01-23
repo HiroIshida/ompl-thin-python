@@ -57,6 +57,7 @@
 #include "ompl/base/PlannerStatus.h"
 #include "ompl/base/SpaceInformation.h"
 #include "ompl/base/StateValidityChecker.h"
+#include "repair_planner.hpp"
 
 #define STRING(str) #str
 #define ALLOCATE_ALGO(ALGO)                                   \
@@ -626,7 +627,7 @@ struct LightningPlanner : public UnconstrainedPlannerBase {
                    std::optional<double> range)
       : UnconstrainedPlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
   {
-    auto repair_planner = std::make_shared<og::LightningRetrieveRepair>(csi_->si_, dbwrap.db);
+    auto repair_planner = std::make_shared<LightningRetrieveRepairWrap>(csi_->si_, dbwrap.db);
     setup_->setPlanner(repair_planner);
   }
 };
