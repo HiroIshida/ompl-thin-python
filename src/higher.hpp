@@ -57,6 +57,7 @@
 #include "ompl/base/PlannerStatus.h"
 #include "ompl/base/SpaceInformation.h"
 #include "ompl/base/StateValidityChecker.h"
+#include "repair_planner.hpp"
 
 #define STRING(str) #str
 #define ALLOCATE_ALGO(ALGO)                                   \
@@ -629,6 +630,34 @@ struct LightningPlanner : public UnconstrainedPlannerBase {
     auto repair_planner = std::make_shared<og::LightningRetrieveRepair>(csi_->si_, dbwrap.db);
     setup_->setPlanner(repair_planner);
   }
+};
+
+struct LightningRepairPlanner : public UnconstrainedPlannerBase {
+  // a variant of lightning that does not use dabase. Rather, user must
+  // give the trajectory before solve() explicitely as the heuristic.
+
+  LightningRepairPlanner(const std::vector<double>& lb,
+                         const std::vector<double>& ub,
+                         const std::function<bool(std::vector<double>)>& is_valid,
+                         size_t max_is_valid_call,
+                         const std::vector<double>& box_width,
+                         const std::string& algo_name,
+                         std::optional<double> range)
+      : UnconstrainedPlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
+  {
+    ot::LightningDBPtr db = nullptr;  // we dont use database
+    auto repair_planner = std::make_shared<LightningRetrieveRepairWrap>(csi_->si_, db);
+    repair_planner_ = repair_planner;
+    setup_->setPlanner(repair_planner);
+  }
+
+  void set_heuristic(const std::vector<std::vector<double>>& points)
+  {
+    repair_planner_->trajectory_heuristic_ = points_to_pathgeometric(points, this->csi_->si_);
+  }
+
+ protected:
+  std::shared_ptr<LightningRetrieveRepairWrap> repair_planner_;
 };
 
 void setGlobalSeed(size_t seed) { ompl::RNG::setSeed(seed); }

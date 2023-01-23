@@ -82,7 +82,7 @@ class _OMPLPlannerBase(ABC):
         ...
 
 
-class Planner(_OMPLPlannerBase):
+class _UnconstrainedPlannerBase(_OMPLPlannerBase):
     def __init__(
         self,
         lb: VectorLike,
@@ -108,8 +108,18 @@ class Planner(_OMPLPlannerBase):
         )
         self.reset_is_valid(is_valid)
 
+
+class Planner(_UnconstrainedPlannerBase):
     def planner_type(self) -> Any:
         return _omplpy._OMPLPlanner
+
+
+class RepairPlanner(_UnconstrainedPlannerBase):
+    def planner_type(self) -> Any:
+        return _omplpy._LightningRepairPlanner
+
+    def set_heuristic(self, traj_heuristic: np.ndarray) -> None:
+        self._planner.set_heuristic(traj_heuristic)
 
 
 class ConstrainedPlanner(_OMPLPlannerBase):
