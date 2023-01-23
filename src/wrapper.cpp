@@ -54,4 +54,16 @@ PYBIND11_MODULE(_omplpy, m)
                     std::optional<double>>())
       .def("reset_is_valid", &LightningPlanner::resetIsValid)
       .def("solve", &LightningPlanner::solve);
+
+  py::class_<LightningRepairPlanner>(m, "_LightningRepairPlanner")
+      .def(py::init<std::vector<double>,
+                    std::vector<double>,
+                    std::function<bool(std::vector<double>)>,
+                    size_t,
+                    std::vector<double>,
+                    std::string,
+                    std::optional<double>>())
+      .def("reset_is_valid", &LightningRepairPlanner::resetIsValid)
+      .def("solve", &LightningRepairPlanner::solve)
+      .def("set_heuristic", &LightningRepairPlanner::set_heuristic);
 }
