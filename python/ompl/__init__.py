@@ -24,6 +24,10 @@ def set_ompl_random_seed(seed: int) -> None:
     _omplpy.set_random_seed(seed)
 
 
+class InvalidProblemError(Exception):
+    ...
+
+
 class _OMPLPlannerBase(ABC):
     """
     An additional higher layer wrapper.
@@ -32,31 +36,8 @@ class _OMPLPlannerBase(ABC):
 
     _planner: Any
     _is_valid: IsValidFunc
-
-    def __init__(
-        self,
-        lb: VectorLike,
-        ub: VectorLike,
-        is_valid: IsValidFunc,
-        n_max_is_valid: int,
-        validation_box: Union[np.ndarray, float],
-        algo: Algorithm = Algorithm.RRTConnect,
-        algo_range: Optional[float] = None,
-    ):
-
-        lb = np.array(lb)
-        ub = np.array(ub)
-        assert lb.ndim == 1
-        assert ub.ndim == 1
-        assert len(lb) == len(ub)
-        planner_t = self.planner_type()
-        if isinstance(validation_box, float):
-            dim = len(lb)
-            validation_box = np.array([validation_box] * dim)
-        self._planner = planner_t(
-            lb, ub, is_valid, n_max_is_valid, validation_box, algo.value
-        )
-        self.reset_is_valid(is_valid)
+    _lb: np.ndarray
+    _ub: np.ndarray
 
     def solve(
         self, start: VectorLike, goal: VectorLike, simplify: bool = False
@@ -64,8 +45,19 @@ class _OMPLPlannerBase(ABC):
         start = np.array(start)
         goal = np.array(goal)
 
-        assert self._is_valid(start.tolist())
-        assert self._is_valid(goal.tolist())
+        # sanity check
+        if not self._is_valid(start.tolist()):
+            raise InvalidProblemError("start position is not valid")
+
+        if np.any(start < np.array(self._lb)) or np.any(start > np.array(self._ub)):
+            raise InvalidProblemError("start position is not in box")
+
+        if not self._is_valid(goal.tolist()):
+            raise InvalidProblemError("goal position is not valid")
+
+        if np.any(goal < np.array(self._lb)) or np.any(goal > np.array(self._ub)):
+            raise InvalidProblemError("gol position is not in box")
+
         ret = self._planner.solve(start, goal, simplify)
         if ret is None:
             return ret
@@ -107,6 +99,8 @@ class _UnconstrainedPlannerBase(_OMPLPlannerBase):
             lb, ub, is_valid, n_max_is_valid, validation_box, algo.value, algo_range
         )
         self.reset_is_valid(is_valid)
+        self._lb = lb
+        self._ub = ub
 
 
 class Planner(_UnconstrainedPlannerBase):
@@ -173,6 +167,8 @@ class ConstrainedPlanner(_OMPLPlannerBase):
             algo_range,
         )
         self.reset_is_valid(is_valid)
+        self._lb = lb
+        self._ub = ub
 
     def solve(
         self, start: VectorLike, goal: VectorLike, simplify: bool = False
@@ -250,6 +246,8 @@ class LightningPlanner(_OMPLPlannerBase):
             db, lb, ub, is_valid, n_max_is_valid, validation_box, algo.value, algo_range
         )
         self.reset_is_valid(is_valid)
+        self._lb = lb
+        self._ub = ub
 
     def planner_type(self) -> Any:
         return _omplpy._LightningPlanner
