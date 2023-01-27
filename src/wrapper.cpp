@@ -10,6 +10,7 @@ PYBIND11_MODULE(_omplpy, m)
 {
   m.doc() = "unofficial ompl python wrapper";
   m.def("set_random_seed", &setGlobalSeed);
+  m.def("set_log_level_none", &setLogLevelNone);
 
   py::class_<ConstrainedPlanner>(m, "_ConstrainedPlanner")
       .def(py::init<const ConstFn&,

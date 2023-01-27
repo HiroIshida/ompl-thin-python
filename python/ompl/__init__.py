@@ -24,6 +24,10 @@ def set_ompl_random_seed(seed: int) -> None:
     _omplpy.set_random_seed(seed)
 
 
+def turn_off_logger() -> None:
+    _omplpy.set_log_level_none()
+
+
 class InvalidProblemError(Exception):
     ...
 

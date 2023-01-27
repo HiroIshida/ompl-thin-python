@@ -661,3 +661,5 @@ struct LightningRepairPlanner : public UnconstrainedPlannerBase {
 };
 
 void setGlobalSeed(size_t seed) { ompl::RNG::setSeed(seed); }
+
+void setLogLevelNone() { ompl::msg::setLogLevel(ompl::msg::LOG_NONE); }
