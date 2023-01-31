@@ -73,10 +73,6 @@ class _OMPLPlannerBase(ABC):
         self._planner.reset_is_valid(is_valid)
         self._is_valid = is_valid
 
-    @abstractmethod
-    def planner_type(self) -> Any:
-        ...
-
 
 class _UnconstrainedPlannerBase(_OMPLPlannerBase):
     def __init__(
@@ -95,26 +91,61 @@ class _UnconstrainedPlannerBase(_OMPLPlannerBase):
         assert lb.ndim == 1
         assert ub.ndim == 1
         assert len(lb) == len(ub)
-        planner_t = self.planner_type()
         if isinstance(validation_box, float):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
-        self._planner = planner_t(
-            lb, ub, is_valid, n_max_is_valid, validation_box, algo.value, algo_range
+
+        self._planner = self._create_planner(
+            lb, ub, is_valid, n_max_is_valid, validation_box, algo, algo_range
         )
         self.reset_is_valid(is_valid)
         self._lb = lb
         self._ub = ub
 
+    @abstractmethod
+    def _create_planner(
+        self,
+        lb: VectorLike,
+        ub: VectorLike,
+        is_valid: IsValidFunc,
+        n_max_is_valid: int,
+        validation_box: np.ndarray,
+        algo: Algorithm = Algorithm.RRTConnect,
+        algo_range: Optional[float] = None,
+    ) -> Any:
+        ...
+
 
 class Planner(_UnconstrainedPlannerBase):
-    def planner_type(self) -> Any:
-        return _omplpy._OMPLPlanner
+    def _create_planner(
+        self,
+        lb: VectorLike,
+        ub: VectorLike,
+        is_valid: IsValidFunc,
+        n_max_is_valid: int,
+        validation_box: np.ndarray,
+        algo: Algorithm = Algorithm.RRTConnect,
+        algo_range: Optional[float] = None,
+    ) -> Any:
+        return _omplpy._OMPLPlanner(
+            lb, ub, is_valid, n_max_is_valid, validation_box, algo.value, algo_range
+        )
 
 
 class RepairPlanner(_UnconstrainedPlannerBase):
-    def planner_type(self) -> Any:
-        return _omplpy._LightningRepairPlanner
+    def _create_planner(
+        self,
+        lb: VectorLike,
+        ub: VectorLike,
+        is_valid: IsValidFunc,
+        n_max_is_valid: int,
+        validation_box: np.ndarray,
+        algo: Algorithm = Algorithm.RRTConnect,
+        algo_range: Optional[float] = None,
+    ) -> Any:
+        return _omplpy._LightningRepairPlanner(
+            lb, ub, is_valid, n_max_is_valid, validation_box, algo.value, algo_range
+        )
 
     def set_heuristic(self, traj_heuristic: np.ndarray) -> None:
         self._planner.set_heuristic(traj_heuristic)
@@ -138,7 +169,6 @@ class ConstrainedPlanner(_OMPLPlannerBase):
         assert lb.ndim == 1
         assert ub.ndim == 1
         assert len(lb) == len(ub)
-        planner_t = self.planner_type()
         if isinstance(validation_box, float):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
@@ -159,7 +189,8 @@ class ConstrainedPlanner(_OMPLPlannerBase):
                 return self.jac_cache.tolist()
 
         const_fn = ConstraintFunction()
-        self._planner = planner_t(
+
+        self._planner = _omplpy._ConstrainedPlanner(
             const_fn.f,
             const_fn.jac,
             lb,
@@ -190,9 +221,6 @@ class ConstrainedPlanner(_OMPLPlannerBase):
         if np.linalg.norm(traj[-1] - np_goal) > 1e-5:
             traj[-1] = np_goal
         return traj
-
-    def planner_type(self) -> Any:
-        return _omplpy._ConstrainedPlanner
 
 
 class LightningDB(_omplpy._LightningDB):
@@ -242,16 +270,12 @@ class LightningPlanner(_OMPLPlannerBase):
         assert lb.ndim == 1
         assert ub.ndim == 1
         assert len(lb) == len(ub)
-        planner_t = self.planner_type()
         if isinstance(validation_box, float):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
-        self._planner = planner_t(
+        self._planner = _omplpy._LightningPlanner(
             db, lb, ub, is_valid, n_max_is_valid, validation_box, algo.value, algo_range
         )
         self.reset_is_valid(is_valid)
         self._lb = lb
         self._ub = ub
-
-    def planner_type(self) -> Any:
-        return _omplpy._LightningPlanner
