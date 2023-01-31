@@ -3,17 +3,17 @@ import numpy as np
 import pytest
 from common import IsValid, ProblemDef, Trajectory
 
-from ompl import Planner, RepairPlanner, set_ompl_random_seed
+from ompl import ERTConnectPlanner, Planner, RepairPlanner, set_ompl_random_seed
 
 set_ompl_random_seed(0)
 
 
-def test_repair_planner(visualize: bool = False):
+def _test_heuristic_planner(heuristic_planner_t, visualize: bool = False):
 
     is_valid = IsValid(0)
     pdef = ProblemDef()
 
-    repair_planner = RepairPlanner(
+    repair_planner = heuristic_planner_t(
         pdef.lb, pdef.ub, is_valid, pdef.n_max_call, pdef.motion_step_box
     )
     planner = Planner(pdef.lb, pdef.ub, is_valid, pdef.n_max_call, pdef.motion_step_box)
@@ -43,5 +43,10 @@ def test_repair_planner(visualize: bool = False):
         plt.show()
 
 
+def test_heuristic_planner():
+    _test_heuristic_planner(RepairPlanner)
+    _test_heuristic_planner(ERTConnectPlanner)
+
+
 if __name__ == "__main__":
-    test_repair_planner(visualize=True)
+    _test_heuristic_planner(ERTConnectPlanner, visualize=True)

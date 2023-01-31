@@ -10,6 +10,7 @@
 #include <ompl/base/spaces/constraint/ProjectedStateSpace.h>
 #include <ompl/geometric/PathGeometric.h>
 #include <ompl/geometric/SimpleSetup.h>
+#include <ompl/geometric/planners/experience/ERTConnect.h>
 #include <ompl/geometric/planners/fmt/BFMT.h>
 #include <ompl/geometric/planners/fmt/FMT.h>
 #include <ompl/geometric/planners/informedtrees/ABITstar.h>
@@ -658,6 +659,27 @@ struct LightningRepairPlanner : public UnconstrainedPlannerBase {
 
  protected:
   std::shared_ptr<LightningRetrieveRepairWrap> repair_planner_;
+};
+
+struct ERTConnectPlanner : public UnconstrainedPlannerBase {
+  ERTConnectPlanner(const std::vector<double>& lb,
+                    const std::vector<double>& ub,
+                    const std::function<bool(std::vector<double>)>& is_valid,
+                    size_t max_is_valid_call,
+                    const std::vector<double>& box_width)
+      : UnconstrainedPlannerBase(lb, ub, is_valid, max_is_valid_call, box_width)
+  {
+    auto ert_connect = std::make_shared<og::ERTConnect>(csi_->si_);
+    setup_->setPlanner(ert_connect);
+  }
+
+  void set_heuristic(const std::vector<std::vector<double>>& points)
+  {
+    auto geo_path = points_to_pathgeometric(points, this->csi_->si_);
+    const auto heuristic = geo_path.getStates();
+    const auto ert_connect = setup_->getPlanner()->as<og::ERTConnect>();
+    ert_connect->setExperience(heuristic);
+  }
 };
 
 void setGlobalSeed(size_t seed) { ompl::RNG::setSeed(seed); }
