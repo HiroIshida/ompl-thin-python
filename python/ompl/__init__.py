@@ -151,6 +151,36 @@ class RepairPlanner(_UnconstrainedPlannerBase):
         self._planner.set_heuristic(traj_heuristic)
 
 
+class ERTConnectPlanner(_UnconstrainedPlannerBase):
+    _is_set_heursitic: bool = False
+
+    def _create_planner(
+        self,
+        lb: VectorLike,
+        ub: VectorLike,
+        is_valid: IsValidFunc,
+        n_max_is_valid: int,
+        validation_box: np.ndarray,
+        algo: Algorithm = Algorithm.RRTConnect,
+        algo_range: Optional[float] = None,
+    ) -> Any:
+        # NOTE: algo will not used in this planner
+        return _omplpy._ERTConnectPlanner(
+            lb, ub, is_valid, n_max_is_valid, validation_box
+        )
+
+    def solve(
+        self, start: VectorLike, goal: VectorLike, simplify: bool = False
+    ) -> Optional[List[np.ndarray]]:
+        if not self._is_set_heursitic:
+            raise RuntimeError("trajectory heuristic is not set")
+        return super().solve(start, goal, simplify)
+
+    def set_heuristic(self, traj_heuristic: np.ndarray) -> None:
+        self._planner.set_heuristic(traj_heuristic)
+        self._is_set_heursitic = True
+
+
 class LightningDB(_omplpy._LightningDB):
     dim: int
 
