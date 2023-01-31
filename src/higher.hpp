@@ -673,23 +673,13 @@ struct ERTConnectPlanner : public UnconstrainedPlannerBase {
     setup_->setPlanner(ert_connect);
   }
 
-  ~ERTConnectPlanner()
-  {
-    if (heuristic_) {
-      for (auto s : *heuristic_) free(s);
-    }
-  }
-
   void set_heuristic(const std::vector<std::vector<double>>& points)
   {
-    if (heuristic_) {
-      for (auto s : *heuristic_) free(s);
-    }
     auto geo_path = points_to_pathgeometric(points, this->csi_->si_);
     const auto heuristic = geo_path.getStates();
+    const auto ert_connect = setup_->getPlanner()->as<og::ERTConnect>();
+    ert_connect->setExperience(heuristic);
   }
-
-  std::optional<std::vector<ob::State*>> heuristic_;
 };
 
 void setGlobalSeed(size_t seed) { ompl::RNG::setSeed(seed); }
