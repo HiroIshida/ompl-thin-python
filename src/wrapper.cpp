@@ -67,4 +67,14 @@ PYBIND11_MODULE(_omplpy, m)
       .def("reset_is_valid", &LightningRepairPlanner::resetIsValid)
       .def("solve", &LightningRepairPlanner::solve)
       .def("set_heuristic", &LightningRepairPlanner::set_heuristic);
+
+  py::class_<ERTConnectPlanner>(m, "_ERTConnectPlanner")
+      .def(py::init<std::vector<double>,
+                    std::vector<double>,
+                    std::function<bool(std::vector<double>)>,
+                    size_t,
+                    std::vector<double>>())
+      .def("reset_is_valid", &ERTConnectPlanner::resetIsValid)
+      .def("solve", &ERTConnectPlanner::solve)
+      .def("set_heuristic", &ERTConnectPlanner::set_heuristic);
 }
