@@ -680,6 +680,23 @@ struct ERTConnectPlanner : public UnconstrainedPlannerBase {
     const auto ert_connect = setup_->getPlanner()->as<og::ERTConnect>();
     ert_connect->setExperience(heuristic);
   }
+
+  void set_parameters(std::optional<double> omega_min,
+                      std::optional<double> omega_max,
+                      std::optional<double> eps)
+  {
+    const auto planner = setup_->getPlanner();
+    const auto ert_connect = planner->as<og::ERTConnect>();
+    if (omega_min) {
+      ert_connect->setExperienceFractionMin(*omega_min);
+    }
+    if (omega_max) {
+      ert_connect->setExperienceFractionMax(*omega_max);
+    }
+    if (eps) {
+      ert_connect->setExperienceTubularRadius(*eps);
+    }
+  }
 };
 
 void setGlobalSeed(size_t seed) { ompl::RNG::setSeed(seed); }

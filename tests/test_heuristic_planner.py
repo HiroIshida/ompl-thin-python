@@ -18,6 +18,9 @@ def _test_heuristic_planner(heuristic_planner_t, visualize: bool = False):
     )
     planner = Planner(pdef.lb, pdef.ub, is_valid, pdef.n_max_call, pdef.motion_step_box)
 
+    if isinstance(repair_planner, ERTConnectPlanner):
+        repair_planner.set_parameters(eps=0.1)
+
     with pytest.raises(RuntimeError):
         # because we didnt set heuristic yet
         ret = repair_planner.solve(pdef.start, pdef.goal, simplify=True)

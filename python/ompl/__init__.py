@@ -169,6 +169,14 @@ class ERTConnectPlanner(_UnconstrainedPlannerBase):
             lb, ub, is_valid, n_max_is_valid, validation_box
         )
 
+    def set_parameters(
+        self,
+        omega_min: Optional[float] = None,
+        omega_max: Optional[float] = None,
+        eps: Optional[float] = None,
+    ):
+        self._planner.set_parameters(omega_min, omega_max, eps)
+
     def solve(
         self, start: VectorLike, goal: VectorLike, simplify: bool = False
     ) -> Optional[List[np.ndarray]]:

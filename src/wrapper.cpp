@@ -76,5 +76,6 @@ PYBIND11_MODULE(_omplpy, m)
                     std::vector<double>>())
       .def("reset_is_valid", &ERTConnectPlanner::resetIsValid)
       .def("solve", &ERTConnectPlanner::solve)
+      .def("set_parameters", &ERTConnectPlanner::set_parameters)
       .def("set_heuristic", &ERTConnectPlanner::set_heuristic);
 }
