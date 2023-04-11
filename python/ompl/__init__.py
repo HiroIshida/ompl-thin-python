@@ -20,6 +20,12 @@ class Algorithm(Enum):
     RRTstar = "RRTstar"
 
 
+class ConstStateType(Enum):
+    PROJECTION = _omplpy.ConstStateType.PROJECTION
+    ATLAS = _omplpy.ConstStateType.ATLAS
+    TANGENT = _omplpy.ConstStateType.TANGENT
+
+
 def set_ompl_random_seed(seed: int) -> None:
     _omplpy.set_random_seed(seed)
 
@@ -258,6 +264,7 @@ class ConstrainedPlanner(_OMPLPlannerBase):
         validation_box: Union[np.ndarray, float],
         algo: Algorithm = Algorithm.RRTConnect,
         algo_range: Optional[float] = None,
+        cs_type: ConstStateType = ConstStateType.PROJECTION,
     ):
 
         lb = np.array(lb)
@@ -296,6 +303,7 @@ class ConstrainedPlanner(_OMPLPlannerBase):
             validation_box,
             algo.value,
             algo_range,
+            cs_type.value,
         )
         self.reset_is_valid(is_valid)
         self._lb = lb

@@ -6,8 +6,10 @@
 #include <ompl/base/StateSpace.h>
 #include <ompl/base/spaces/RealVectorBounds.h>
 #include <ompl/base/spaces/RealVectorStateSpace.h>
+#include <ompl/base/spaces/constraint/AtlasStateSpace.h>
 #include <ompl/base/spaces/constraint/ConstrainedStateSpace.h>
 #include <ompl/base/spaces/constraint/ProjectedStateSpace.h>
+#include <ompl/base/spaces/constraint/TangentBundleStateSpace.h>
 #include <ompl/geometric/PathGeometric.h>
 #include <ompl/geometric/SimpleSetup.h>
 #include <ompl/geometric/planners/experience/ERTConnect.h>
@@ -393,6 +395,8 @@ struct UnconstrianedCollisoinAwareSpaceInformation : public CollisionAwareSpaceI
   }
 };
 
+enum ConstStateType { PROJECTION, ATLAS, TANGENT };
+
 struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInformation<true> {
   ConstrainedCollisoinAwareSpaceInformation(
       const ConstFn& f_const,
@@ -401,7 +405,8 @@ struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInf
       const std::vector<double>& ub,
       const std::function<bool(std::vector<double>)>& is_valid,
       size_t max_is_valid_call,
-      const std::vector<double>& box_width)
+      const std::vector<double>& box_width,
+      ConstStateType cs_type = ConstStateType::PROJECTION)
       : CollisionAwareSpaceInformation<true>{nullptr, is_valid, 0, max_is_valid_call, box_width}
   {
     size_t dim_ambient = lb.size();
@@ -409,7 +414,15 @@ struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInf
     std::shared_ptr<ob::Constraint> constraint =
         std::make_shared<ConstraintWrap>(f_const, jac_const, dim_ambient, dim_constraint);
     const auto space = bound2space(lb, ub);
-    const auto css = std::make_shared<ob::ProjectedStateSpace>(space, constraint);
+
+    ob::ConstrainedStateSpacePtr css;
+    if (cs_type == ConstStateType::PROJECTION) {
+      css = std::make_shared<ob::ProjectedStateSpace>(space, constraint);
+    } else if (cs_type == ConstStateType::ATLAS) {
+      css = std::make_shared<ob::AtlasStateSpace>(space, constraint);
+    } else if (cs_type == ConstStateType::TANGENT) {
+      css = std::make_shared<ob::TangentBundleStateSpace>(space, constraint);
+    }
     const auto csi = std::make_shared<ob::ConstrainedSpaceInformation>(css);
     si_ = std::static_pointer_cast<ob::SpaceInformation>(csi);
     si_->setMotionValidator(std::make_shared<GeodesicBoxMotionValidator>(si_, box_width));
@@ -530,11 +543,12 @@ struct ConstrainedPlanner : public PlannerBase<true> {
                      size_t max_is_valid_call,
                      const std::vector<double>& box_width,
                      const std::string& algo_name,
-                     std::optional<double> range)
+                     std::optional<double> range,
+                     ConstStateType cs_type = ConstStateType::PROJECTION)
       : PlannerBase<true>{nullptr, nullptr}
   {
     csi_ = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(
-        f_const, jac_const, lb, ub, is_valid, max_is_valid_call, box_width);
+        f_const, jac_const, lb, ub, is_valid, max_is_valid_call, box_width, cs_type);
     const auto algo = get_algorithm(algo_name, range);
 
     setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);

@@ -12,6 +12,11 @@ PYBIND11_MODULE(_omplpy, m)
   m.def("set_random_seed", &setGlobalSeed);
   m.def("set_log_level_none", &setLogLevelNone);
 
+  py::enum_<ConstStateType>(m, "ConstStateType")
+      .value("PROJECTION", ConstStateType::PROJECTION)
+      .value("ATLAS", ConstStateType::ATLAS)
+      .value("TANGENT", ConstStateType::TANGENT);
+
   py::class_<ConstrainedPlanner>(m, "_ConstrainedPlanner")
       .def(py::init<const ConstFn&,
                     const ConstJacFn&,
@@ -21,7 +26,8 @@ PYBIND11_MODULE(_omplpy, m)
                     size_t,
                     std::vector<double>,
                     std::string,
-                    std::optional<double>>())
+                    std::optional<double>,
+                    ConstStateType>())
       .def("reset_is_valid", &ConstrainedPlanner::resetIsValid)
       .def("solve", &ConstrainedPlanner::solve);
 
