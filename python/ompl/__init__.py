@@ -9,6 +9,7 @@ from . import _omplpy
 
 VectorLike = Union[np.ndarray, Sequence[float]]
 IsValidFunc = Callable[[List[float]], bool]
+ProjectFunc = Callable[[], np.ndarray]
 
 
 class Algorithm(Enum):
@@ -256,7 +257,7 @@ class LightningPlanner(_OMPLPlannerBase):
 class ConstrainedPlanner(_OMPLPlannerBase):
     def __init__(
         self,
-        eq_const: Callable[[np.ndarray], Tuple[np.ndarray, np.ndarray]],
+        eq_const: Optional[Callable[[np.ndarray], Tuple[np.ndarray, np.ndarray]]],
         lb: VectorLike,
         ub: VectorLike,
         is_valid: IsValidFunc,
@@ -265,6 +266,9 @@ class ConstrainedPlanner(_OMPLPlannerBase):
         algo: Algorithm = Algorithm.RRTConnect,
         algo_range: Optional[float] = None,
         cs_type: ConstStateType = ConstStateType.PROJECTION,
+        f_and_project: Optional[
+            Tuple[Callable[[np.ndarray], np.ndarray], ProjectFunc]
+        ] = None,
     ):
 
         lb = np.array(lb)
@@ -276,26 +280,35 @@ class ConstrainedPlanner(_OMPLPlannerBase):
             dim = len(lb)
             validation_box = np.array([validation_box] * dim)
 
-        class ConstraintFunction:
-            jac_cache: Optional[np.ndarray] = None
+        if f_and_project is not None:
+            f, f_project = f_and_project
+            f_jac = None
+        else:
 
-            def __call__(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-                return eq_const(x)
+            class ConstraintFunction:
+                jac_cache: Optional[np.ndarray] = None
 
-            def f(self, x: np.ndarray) -> List[float]:
-                val, jac = self.__call__(x)
-                self.jac_cache = jac
-                return val.tolist()
+                def __call__(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+                    return eq_const(x)
 
-            def jac(self, x: np.ndarray) -> List[List[float]]:
-                assert self.jac_cache is not None
-                return self.jac_cache.tolist()
+                def f(self, x: np.ndarray) -> List[float]:
+                    val, jac = self.__call__(x)
+                    self.jac_cache = jac
+                    return val.tolist()
 
-        const_fn = ConstraintFunction()
+                def jac(self, x: np.ndarray) -> List[List[float]]:
+                    assert self.jac_cache is not None
+                    return self.jac_cache.tolist()
+
+            const_fn = ConstraintFunction()
+            f = const_fn.f
+            f_jac = const_fn.jac
+            f_project = None
 
         self._planner = _omplpy._ConstrainedPlanner(
-            const_fn.f,
-            const_fn.jac,
+            f,
+            f_jac,
+            f_project,
             lb,
             ub,
             is_valid,

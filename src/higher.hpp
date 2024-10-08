@@ -38,6 +38,7 @@
 #include <ompl/util/PPM.h>
 #include <ompl/util/Time.h>
 
+#include <Eigen/Dense>
 #include <boost/filesystem.hpp>
 #include <cassert>
 #include <cstddef>
@@ -77,6 +78,7 @@ namespace ot = ompl::tools;
 // pybind fail to convert numpy to eigen in callback case
 using ConstFn = std::function<std::vector<double>(std::vector<double>)>;
 using ConstJacFn = std::function<std::vector<std::vector<double>>(std::vector<double>)>;
+using ProjectFn = std::function<bool(Eigen::Ref<Eigen::VectorXd>)>;
 
 template <typename T>
 std::shared_ptr<T> create_algorithm(const ob::SpaceInformationPtr si, std::optional<double> range)
@@ -311,8 +313,8 @@ class GeodesicBoxMotionValidator : public ob::MotionValidator
 class ConstraintWrap : public ob::Constraint
 {
  public:
-  ConstraintWrap(const ConstFn& f, const ConstJacFn& jac, size_t dim_ambient, size_t dim_constraint)
-      : ob::Constraint(dim_ambient, dim_constraint), f_(f), jac_(jac)
+  ConstraintWrap(ConstFn f, ConstJacFn jac, size_t dim_ambient, size_t dim_constraint)
+      : ob::Constraint(dim_ambient, dim_constraint), f_(std::move(f)), jac_(std::move(jac))
   {
   }
 
@@ -340,6 +342,41 @@ class ConstraintWrap : public ob::Constraint
 
   ConstFn f_;
   ConstJacFn jac_;
+};
+
+class ConstraintWrapCustomProjection : public ob::Constraint
+{
+ public:
+  ConstraintWrapCustomProjection(ConstFn f,
+                                 ProjectFn f_project,
+                                 size_t dim_ambient,
+                                 size_t dim_constraint)
+      : ob::Constraint(dim_ambient, dim_constraint),
+        f_(std::move(f)),
+        f_project_(std::move(f_project))
+  {
+  }
+
+  void function(const Eigen::Ref<const Eigen::VectorXd>& x,
+                Eigen::Ref<Eigen::VectorXd> out) const override
+  {
+    std::vector<double> xvec(x.data(), x.data() + x.size());
+    const auto yvec = f_(xvec);
+    for (size_t i = 0; i < yvec.size(); ++i) {
+      out[i] = yvec[i];
+    }
+  }
+
+  void jacobian(const Eigen::Ref<const Eigen::VectorXd>& x,
+                Eigen::Ref<Eigen::MatrixXd> out) const override
+  {
+    throw std::runtime_error("should not reach here");
+  }
+
+  bool project(Eigen::Ref<Eigen::VectorXd> x) const override { return this->f_project_(x); }
+
+  ConstFn f_;
+  ProjectFn f_project_;
 };
 
 template <bool Constrained>
@@ -399,8 +436,9 @@ enum ConstStateType { PROJECTION, ATLAS, TANGENT };
 
 struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInformation<true> {
   ConstrainedCollisoinAwareSpaceInformation(
-      const ConstFn& f_const,
-      const ConstJacFn& jac_const,
+      ConstFn f_const,
+      ConstJacFn jac_const,
+      ProjectFn f_project,
       const std::vector<double>& lb,
       const std::vector<double>& ub,
       const std::function<bool(std::vector<double>)>& is_valid,
@@ -411,8 +449,16 @@ struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInf
   {
     size_t dim_ambient = lb.size();
     size_t dim_constraint = f_const(lb).size();  // detect by dummy input
-    std::shared_ptr<ob::Constraint> constraint =
-        std::make_shared<ConstraintWrap>(f_const, jac_const, dim_ambient, dim_constraint);
+    std::shared_ptr<ob::Constraint> constraint;
+    if (jac_const == nullptr && f_project != nullptr) {
+      constraint = std::make_shared<ConstraintWrapCustomProjection>(
+          std::move(f_const), std::move(f_project), dim_ambient, dim_constraint);
+    } else if (jac_const != nullptr && f_project == nullptr) {
+      constraint = std::make_shared<ConstraintWrap>(
+          std::move(f_const), std::move(jac_const), dim_ambient, dim_constraint);
+    } else {
+      throw std::runtime_error("either f_project or jac_const should be nullptr");
+    }
     const auto space = bound2space(lb, ub);
 
     ob::ConstrainedStateSpacePtr css;
@@ -535,8 +581,9 @@ struct PlannerBase {
 };
 
 struct ConstrainedPlanner : public PlannerBase<true> {
-  ConstrainedPlanner(const ConstFn& f_const,
-                     const ConstJacFn& jac_const,
+  ConstrainedPlanner(ConstFn f_const,
+                     ConstJacFn jac_const,
+                     ProjectFn f_project,
                      const std::vector<double>& lb,
                      const std::vector<double>& ub,
                      const std::function<bool(std::vector<double>)>& is_valid,
@@ -547,8 +594,15 @@ struct ConstrainedPlanner : public PlannerBase<true> {
                      ConstStateType cs_type = ConstStateType::PROJECTION)
       : PlannerBase<true>{nullptr, nullptr}
   {
-    csi_ = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(
-        f_const, jac_const, lb, ub, is_valid, max_is_valid_call, box_width, cs_type);
+    csi_ = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(std::move(f_const),
+                                                                       std::move(jac_const),
+                                                                       std::move(f_project),
+                                                                       lb,
+                                                                       ub,
+                                                                       is_valid,
+                                                                       max_is_valid_call,
+                                                                       box_width,
+                                                                       cs_type);
     const auto algo = get_algorithm(algo_name, range);
 
     setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
