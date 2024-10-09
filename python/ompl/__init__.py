@@ -14,6 +14,7 @@ ProjectFunc = Callable[[], np.ndarray]
 
 class Algorithm(Enum):
     BKPIECE1 = "BKPIECE1"
+    IKPIECE1 = "IKPIECE1"
     KPIECE1 = "KPIECE1"
     LBKPIECE1 = "LBKPIECE1"
     RRTConnect = "RRTConnect"

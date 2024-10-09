@@ -196,7 +196,6 @@ class BoxMotionValidator : public ob::MotionValidator
   std::vector<double> width_;
 };
 
-
 std::shared_ptr<ob::Constraint> global_fuck_constraint_;
 
 std::optional<std::vector<double>> split_geodesic_with_box(const ob::State* s1,
@@ -570,6 +569,8 @@ struct PlannerBase {
       return create_algorithm<og::BKPIECE1>(space_info, range);
     } else if (name.compare("KPIECE1") == 0) {
       return create_algorithm<og::KPIECE1>(space_info, range);
+    } else if (name.compare("IKPIECE1") == 0) {
+      return create_algorithm<og::IKPIECE1>(space_info, range);
     } else if (name.compare("RRT") == 0) {
       return create_algorithm<og::RRT>(space_info, range);
     } else if (name.compare("RRTConnect") == 0) {
@@ -603,7 +604,7 @@ struct ConstrainedPlanner : public PlannerBase<true> {
   {
     csi_ = std::make_unique<ConstrainedCollisoinAwareSpaceInformation>(std::move(f_const),
                                                                        std::move(jac_const),
-                                                                       std::move(f_project),
+                                                                       f_project,
                                                                        lb,
                                                                        ub,
                                                                        is_valid,
@@ -611,6 +612,16 @@ struct ConstrainedPlanner : public PlannerBase<true> {
                                                                        box_width,
                                                                        cs_type);
     const auto algo = get_algorithm(algo_name, range);
+    if (algo_name == "IKPIECE1") {
+      /// dyn pointer cast to std::shared_ptr<og::IKPIECE1>
+      auto ikpiece1 = std::dynamic_pointer_cast<og::IKPIECE1>(algo);
+      ikpiece1->set_project_fn(f_project);
+      Eigen::VectorXd motion_step_box(box_width.size());
+      for (size_t i = 0; i < box_width.size(); ++i) {
+        motion_step_box(i) = box_width[i];
+      }
+      ikpiece1->set_motion_step_box(motion_step_box);
+    }
 
     setup_ = std::make_unique<og::SimpleSetup>(csi_->si_);
     setup_->setPlanner(algo);
