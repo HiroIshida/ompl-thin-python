@@ -1,3 +1,4 @@
+#include <pybind11/eigen.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -18,8 +19,9 @@ PYBIND11_MODULE(_omplpy, m)
       .value("TANGENT", ConstStateType::TANGENT);
 
   py::class_<ConstrainedPlanner>(m, "_ConstrainedPlanner")
-      .def(py::init<const ConstFn&,
-                    const ConstJacFn&,
+      .def(py::init<ConstFn,
+                    ConstJacFn,
+                    ProjectFn,
                     std::vector<double>,
                     std::vector<double>,
                     std::function<bool(std::vector<double>)>,

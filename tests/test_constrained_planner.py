@@ -36,6 +36,12 @@ def eq_const(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     return y, jac
 
 
+def project(x: np.ndarray) -> bool:
+    dist = np.linalg.norm(x)
+    x /= dist
+    return True
+
+
 def is_valid(vec: List[float]) -> bool:
     x, y, z = vec
     if abs(x) < 0.2 and abs(z) < 0.8:
@@ -44,27 +50,39 @@ def is_valid(vec: List[float]) -> bool:
 
 
 def test_constrained_planner(visualize: bool = False):
-    planner = ConstrainedPlanner(
+    planner_numelical = ConstrainedPlanner(
         eq_const, [-2, -2, -2], [2, 2, 2], is_valid, 10000, 0.1, algo_range=0.3
+    )
+    f_and_project = (lambda x: eq_const(x)[0], project)
+    planner_with_custom_project = ConstrainedPlanner(
+        None,
+        [-2, -2, -2],
+        [2, 2, 2],
+        is_valid,
+        10000,
+        0.1,
+        algo_range=0.3,
+        f_and_project=f_and_project,
     )
     start = np.array([-1, 0.0, 0.0])
     goal = np.array([1, 0.0, 0.0])
-    traj = planner.solve(start, goal, False)
+    for planner in [planner_numelical, planner_with_custom_project]:
+        traj = planner.solve(start, goal, False)
 
-    assert traj is not None
-    for p in traj:
-        val = eq_const(p)[0]
-        assert np.all(val < 1e-3)
-    assert np.linalg.norm(traj[0] - start) < 1e-3
-    assert np.linalg.norm(traj[-1] - goal) < 1e-3
+        assert traj is not None
+        for p in traj:
+            val = eq_const(p)[0]
+            assert np.all(val < 1e-3)
+        assert np.linalg.norm(traj[0] - start) < 1e-3
+        assert np.linalg.norm(traj[-1] - goal) < 1e-3
 
-    if visualize:
-        fig = plt.figure()
-        ax = fig.add_subplot(projection="3d")
-        plt_sphere([[0, 0, 0]], [0.97], fig, ax)
-        X = np.array(traj)
-        ax.scatter(X[:, 0], X[:, 1], X[:, 2])
-        plt.show()
+        if visualize:
+            fig = plt.figure()
+            ax = fig.add_subplot(projection="3d")
+            plt_sphere([[0, 0, 0]], [0.97], fig, ax)
+            X = np.array(traj)
+            ax.scatter(X[:, 0], X[:, 1], X[:, 2])
+            plt.show()
 
 
 if __name__ == "__main__":
