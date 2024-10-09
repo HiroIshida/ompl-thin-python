@@ -18,6 +18,8 @@ class Algorithm(Enum):
     RRTConnect = "RRTConnect"
     RRT = "RRT"
     RRTstar = "RRTstar"
+    BITstar = "BITstar"
+    BITstarStop = "BITstarStop"  # stop after first solution
 
 
 class ConstStateType(Enum):
