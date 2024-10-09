@@ -196,6 +196,9 @@ class BoxMotionValidator : public ob::MotionValidator
   std::vector<double> width_;
 };
 
+
+std::shared_ptr<ob::Constraint> global_fuck_constraint_;
+
 std::optional<std::vector<double>> split_geodesic_with_box(const ob::State* s1,
                                                            const ob::State* s2,
                                                            const ob::SpaceInformation* si,
@@ -259,6 +262,9 @@ std::optional<std::vector<double>> split_geodesic_with_box(const ob::State* s1,
       if (not_evaluated_yet) {
         const auto s_new = si->allocState();
         space->interpolate(s1, s2, fraction, s_new);
+        if (!global_fuck_constraint_->isSatisfied(s_new)) {
+          return {};
+        }
         if (!si->isValid(s_new)) {
           return {};
         }
@@ -459,6 +465,7 @@ struct ConstrainedCollisoinAwareSpaceInformation : public CollisionAwareSpaceInf
     } else {
       throw std::runtime_error("either f_project or jac_const should be nullptr");
     }
+    global_fuck_constraint_ = constraint;
     const auto space = bound2space(lb, ub);
 
     ob::ConstrainedStateSpacePtr css;
