@@ -12,6 +12,8 @@
 #include <ompl/base/spaces/constraint/TangentBundleStateSpace.h>
 #include <ompl/geometric/PathGeometric.h>
 #include <ompl/geometric/SimpleSetup.h>
+#include <ompl/geometric/planners/est/BiEST.h>
+#include <ompl/geometric/planners/est/EST.h>
 #include <ompl/geometric/planners/experience/ERTConnect.h>
 #include <ompl/geometric/planners/fmt/BFMT.h>
 #include <ompl/geometric/planners/fmt/FMT.h>
@@ -517,12 +519,18 @@ struct PlannerBase {
       return create_algorithm<og::BKPIECE1>(space_info, range);
     } else if (name.compare("KPIECE1") == 0) {
       return create_algorithm<og::KPIECE1>(space_info, range);
+    } else if (name.compare("LBKPIECE1") == 0) {
+      return create_algorithm<og::LBKPIECE1>(space_info, range);
     } else if (name.compare("RRT") == 0) {
       return create_algorithm<og::RRT>(space_info, range);
     } else if (name.compare("RRTConnect") == 0) {
       return create_algorithm<og::RRTConnect>(space_info, range);
     } else if (name.compare("RRTstar") == 0) {
       return create_algorithm<og::RRTstar>(space_info, range);
+    } else if (name.compare("EST") == 0) {
+      return create_algorithm<og::EST>(space_info, range);
+    } else if (name.compare("BiEST") == 0) {
+      return create_algorithm<og::BiEST>(space_info, range);
     } else if (name.compare("BITstar") == 0) {
       return std::make_shared<og::BITstar>(space_info);
     } else if (name.compare("BITstarStop") == 0) {

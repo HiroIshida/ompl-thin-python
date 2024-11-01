@@ -15,6 +15,8 @@ class Algorithm(Enum):
     BKPIECE1 = "BKPIECE1"
     KPIECE1 = "KPIECE1"
     LBKPIECE1 = "LBKPIECE1"
+    EST = "EST"
+    BiEST = "BiEST"
     RRTConnect = "RRTConnect"
     RRT = "RRT"
     RRTstar = "RRTstar"
