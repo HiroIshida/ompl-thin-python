@@ -22,6 +22,8 @@ class Algorithm(Enum):
     RRTstar = "RRTstar"
     BITstar = "BITstar"
     BITstarStop = "BITstarStop"  # stop after first solution
+    AITstar = "AITstar"
+    AITstarStop = "AITstarStop"  # stop after first solution
 
 
 class ConstStateType(Enum):
