@@ -1,32 +1,26 @@
 name: Release
 
-on:
-   push:
-     tags:
-       - 'v*'
+# on:
+#    push:
+#      tags:
+#        - 'v*'
 
-# https://stackoverflow.com/questions/63887031/build-docker-image-locally-in-github-actions-using-docker-build-push-action
+on:  # Tmp for debug
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - "README.md"
 
 jobs:
   pypi:
     name: Release To PyPi
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
         - name: Checkout 
           uses: actions/checkout@v2
-        - name: Setup QEMU
-          uses: docker/setup-qemu-action@v1
-        - name: Set up Docker Buildx
-          uses: docker/setup-buildx-action@v1
-          with:
-              driver: docker
-        - name: build
-          uses: docker/build-push-action@v2
-          with:
-              context: release
-              push: false
-              tags: pypi_release:latest
-              file: release/Dockerfile
-        - name: upload to pypi
+        - name: Install boost static library with fpic
           run: |
-            docker run pypi_release:latest /bin/bash -i -c 'source ~/.bashrc; twine upload --skip-existing -u __token__ -p ${{ secrets.PYPI_TOKEN_OMPLTHIN }} $HOME/ompl-thin-python/dist/*'
+            wget -q https://boostorg.jfrog.io/artifactory/main/release/1.71.0/source/boost_1_71_0.tar.gz
+            tar xf boost_1_71_0.tar.gz && cd boost_1_71_0 && ./bootstrap.sh
+            sudo ./boost_1_71_0/b2  --with-filesystem --with-serialization --with-program_options --with-system cxxflags=-fPIC cflags=-fPIC link=static -a install
