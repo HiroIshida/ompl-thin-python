@@ -23,4 +23,4 @@ jobs:
           run: |
             wget -q https://boostorg.jfrog.io/artifactory/main/release/1.71.0/source/boost_1_71_0.tar.gz
             tar xf boost_1_71_0.tar.gz && cd boost_1_71_0 && ./bootstrap.sh
-            sudo ./b2  --with-filesystem --with-serialization --with-program_options --with-system cxxflags=-fPIC cflags=-fPIC link=static -a install
+            sudo ./boost_1_71_0/b2  --with-filesystem --with-serialization --with-program_options --with-system cxxflags=-fPIC cflags=-fPIC link=static -a install
